@@ -1,4 +1,4 @@
-# qualle Implementation Plan
+# fin Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -13,7 +13,7 @@
 ## File Map
 
 ```
-cmd/qualle/main.go
+cmd/fin/main.go
 internal/
   config/
     config.go          Config struct, Load(), XDG paths, CredentialsPath()
@@ -58,13 +58,13 @@ internal/
 
 **Files:**
 - Create: `go.mod`
-- Create: `cmd/qualle/main.go`
+- Create: `cmd/fin/main.go`
 
 - [ ] **Step 1: Init module and install deps**
 
 ```bash
-cd /home/deglerj/Dokumente/Git/qualle
-go mod init github.com/deglerj/qualle
+cd /home/deglerj/Dokumente/Git/fin
+go mod init github.com/deglerj/fin
 go get github.com/charmbracelet/bubbletea@latest
 go get github.com/charmbracelet/lipgloss@latest
 go get github.com/charmbracelet/bubbles@latest
@@ -75,7 +75,7 @@ go get golang.org/x/crypto@latest
 - [ ] **Step 2: Create directory structure**
 
 ```bash
-mkdir -p cmd/qualle
+mkdir -p cmd/fin
 mkdir -p internal/{config,auth,api,player,image}
 mkdir -p internal/ui/{msg,styles,keys,app,login,browser,details,search,help}
 ```
@@ -83,7 +83,7 @@ mkdir -p internal/ui/{msg,styles,keys,app,login,browser,details,search,help}
 - [ ] **Step 3: Write minimal main.go**
 
 ```go
-// cmd/qualle/main.go
+// cmd/fin/main.go
 package main
 
 import (
@@ -136,7 +136,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/deglerj/qualle/internal/config"
+	"github.com/deglerj/fin/internal/config"
 )
 
 func TestLoadDefaults(t *testing.T) {
@@ -154,7 +154,7 @@ func TestLoadDefaults(t *testing.T) {
 func TestLoadFromFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	if err := os.MkdirAll(filepath.Join(dir, "qualle"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "fin"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	toml := `[server]
@@ -162,7 +162,7 @@ url = "https://jf.example.com"
 [player]
 command = "vlc"
 `
-	if err := os.WriteFile(filepath.Join(dir, "qualle", "config.toml"), []byte(toml), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "fin", "config.toml"), []byte(toml), 0644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := config.Load()
@@ -181,7 +181,7 @@ func TestCredentialsPath(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 	p := config.CredentialsPath()
-	if p != filepath.Join(dir, "qualle", "credentials") {
+	if p != filepath.Join(dir, "fin", "credentials") {
 		t.Errorf("unexpected credentials path: %q", p)
 	}
 }
@@ -251,10 +251,10 @@ func defaults() *Config {
 
 func configDir() string {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "qualle")
+		return filepath.Join(xdg, "fin")
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "qualle")
+	return filepath.Join(home, ".config", "fin")
 }
 
 func CredentialsPath() string {
@@ -314,7 +314,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/deglerj/qualle/internal/auth"
+	"github.com/deglerj/fin/internal/auth"
 )
 
 type fixedID struct{}
@@ -454,7 +454,7 @@ func deriveKey(provider MachineIDProvider) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := hkdf.New(sha256.New, []byte(id), []byte("qualle-creds-v1"), nil)
+	r := hkdf.New(sha256.New, []byte(id), []byte("fin-creds-v1"), nil)
 	key := make([]byte, 32)
 	if _, err := io.ReadFull(r, key); err != nil {
 		return nil, err
@@ -635,7 +635,7 @@ import (
 	"time"
 )
 
-const clientHeader = `MediaBrowser Client="qualle", Device="terminal", DeviceId="qualle-cli", Version="1.0.0"`
+const clientHeader = `MediaBrowser Client="fin", Device="terminal", DeviceId="fin-cli", Version="1.0.0"`
 
 type Client struct {
 	baseURL    string
@@ -724,7 +724,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/deglerj/qualle/internal/api"
+	"github.com/deglerj/fin/internal/api"
 )
 
 func newTestServer(t *testing.T, handler http.Handler) (*httptest.Server, *api.Client) {
@@ -925,7 +925,7 @@ package player_test
 import (
 	"testing"
 
-	"github.com/deglerj/qualle/internal/player"
+	"github.com/deglerj/fin/internal/player"
 )
 
 func TestBuildCmd(t *testing.T) {
@@ -999,7 +999,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/deglerj/qualle/internal/image"
+	"github.com/deglerj/fin/internal/image"
 )
 
 func TestEncodeContainsAPC(t *testing.T) {
@@ -1176,7 +1176,7 @@ git commit -m "feat: add mpv player launcher and kitty image encoder"
 // internal/ui/msg/msg.go
 package msg
 
-import "github.com/deglerj/qualle/internal/api"
+import "github.com/deglerj/fin/internal/api"
 
 // Screen navigation
 type LoginSuccess struct {
@@ -1332,8 +1332,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/deglerj/qualle/internal/ui/login"
-	"github.com/deglerj/qualle/internal/ui/msg"
+	"github.com/deglerj/fin/internal/ui/login"
+	"github.com/deglerj/fin/internal/ui/msg"
 )
 
 func TestInitialView(t *testing.T) {
@@ -1369,9 +1369,9 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/deglerj/qualle/internal/api"
-	"github.com/deglerj/qualle/internal/ui/msg"
-	"github.com/deglerj/qualle/internal/ui/styles"
+	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/ui/msg"
+	"github.com/deglerj/fin/internal/ui/styles"
 )
 
 type field int
@@ -1501,7 +1501,7 @@ func (m Model) submit() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	title := styles.Title.Render("qualle — Jellyfin TUI")
+	title := styles.Title.Render("fin — Jellyfin TUI")
 	form := fmt.Sprintf(
 		"%s\n%s\n\n%s\n%s\n\n%s\n%s",
 		styles.Label.Render("Server URL"),
@@ -1557,9 +1557,9 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/deglerj/qualle/internal/api"
-	"github.com/deglerj/qualle/internal/ui/browser"
-	"github.com/deglerj/qualle/internal/ui/msg"
+	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/ui/browser"
+	"github.com/deglerj/fin/internal/ui/msg"
 )
 
 func items(names ...string) []api.Item {
@@ -1637,10 +1637,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/deglerj/qualle/internal/api"
-	"github.com/deglerj/qualle/internal/ui/keys"
-	"github.com/deglerj/qualle/internal/ui/msg"
-	"github.com/deglerj/qualle/internal/ui/styles"
+	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/ui/keys"
+	"github.com/deglerj/fin/internal/ui/msg"
+	"github.com/deglerj/fin/internal/ui/styles"
 )
 
 type level struct {
@@ -1880,9 +1880,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/deglerj/qualle/internal/api"
-	"github.com/deglerj/qualle/internal/ui/details"
-	"github.com/deglerj/qualle/internal/ui/msg"
+	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/ui/details"
+	"github.com/deglerj/fin/internal/ui/msg"
 )
 
 func TestDetailsView(t *testing.T) {
@@ -1912,10 +1912,10 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/deglerj/qualle/internal/api"
-	"github.com/deglerj/qualle/internal/image"
-	"github.com/deglerj/qualle/internal/ui/msg"
-	"github.com/deglerj/qualle/internal/ui/styles"
+	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/image"
+	"github.com/deglerj/fin/internal/ui/msg"
+	"github.com/deglerj/fin/internal/ui/styles"
 )
 
 type Model struct {
@@ -2062,9 +2062,9 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/deglerj/qualle/internal/api"
-	"github.com/deglerj/qualle/internal/ui/msg"
-	"github.com/deglerj/qualle/internal/ui/search"
+	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/ui/msg"
+	"github.com/deglerj/fin/internal/ui/search"
 )
 
 func TestSearchShowsResults(t *testing.T) {
@@ -2102,9 +2102,9 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/deglerj/qualle/internal/api"
-	"github.com/deglerj/qualle/internal/ui/msg"
-	"github.com/deglerj/qualle/internal/ui/styles"
+	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/ui/msg"
+	"github.com/deglerj/fin/internal/ui/styles"
 )
 
 type debounceMsg struct{ seq int }
@@ -2224,7 +2224,7 @@ type NavigateToItem struct{ Item api.Item }
 package help
 
 import (
-	"github.com/deglerj/qualle/internal/ui/styles"
+	"github.com/deglerj/fin/internal/ui/styles"
 )
 
 const helpText = `
@@ -2265,7 +2265,7 @@ git commit -m "feat: add details overlay, search overlay, and help screen"
 **Files:**
 - Create: `internal/ui/app/model.go`
 - Create: `internal/ui/app/model_test.go`
-- Modify: `cmd/qualle/main.go`
+- Modify: `cmd/fin/main.go`
 
 - [ ] **Step 1: Write app model tests**
 
@@ -2276,8 +2276,8 @@ package app_test
 import (
 	"testing"
 
-	"github.com/deglerj/qualle/internal/ui/app"
-	"github.com/deglerj/qualle/internal/ui/msg"
+	"github.com/deglerj/fin/internal/ui/app"
+	"github.com/deglerj/fin/internal/ui/msg"
 )
 
 func TestStartsAtLogin(t *testing.T) {
@@ -2318,17 +2318,17 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/deglerj/qualle/internal/api"
-	"github.com/deglerj/qualle/internal/auth"
-	"github.com/deglerj/qualle/internal/config"
-	"github.com/deglerj/qualle/internal/player"
-	"github.com/deglerj/qualle/internal/ui/browser"
-	"github.com/deglerj/qualle/internal/ui/details"
-	"github.com/deglerj/qualle/internal/ui/help"
-	"github.com/deglerj/qualle/internal/ui/login"
-	"github.com/deglerj/qualle/internal/ui/msg"
-	"github.com/deglerj/qualle/internal/ui/search"
-	"github.com/deglerj/qualle/internal/ui/styles"
+	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/auth"
+	"github.com/deglerj/fin/internal/config"
+	"github.com/deglerj/fin/internal/player"
+	"github.com/deglerj/fin/internal/ui/browser"
+	"github.com/deglerj/fin/internal/ui/details"
+	"github.com/deglerj/fin/internal/ui/help"
+	"github.com/deglerj/fin/internal/ui/login"
+	"github.com/deglerj/fin/internal/ui/msg"
+	"github.com/deglerj/fin/internal/ui/search"
+	"github.com/deglerj/fin/internal/ui/styles"
 )
 
 type ScreenKind int
@@ -2568,7 +2568,7 @@ Expected: all 3 tests pass.
 - [ ] **Step 4: Update main.go with startup sequence**
 
 ```go
-// cmd/qualle/main.go
+// cmd/fin/main.go
 package main
 
 import (
@@ -2576,12 +2576,12 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/deglerj/qualle/internal/api"
-	"github.com/deglerj/qualle/internal/auth"
-	"github.com/deglerj/qualle/internal/config"
-	"github.com/deglerj/qualle/internal/image"
-	"github.com/deglerj/qualle/internal/ui/app"
-	"github.com/deglerj/qualle/internal/ui/msg"
+	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/auth"
+	"github.com/deglerj/fin/internal/config"
+	"github.com/deglerj/fin/internal/image"
+	"github.com/deglerj/fin/internal/ui/app"
+	"github.com/deglerj/fin/internal/ui/msg"
 )
 
 func main() {
@@ -2633,7 +2633,7 @@ Expected: no errors. The binary is now runnable (will show login screen if no cr
 - [ ] **Step 6: Commit**
 
 ```bash
-git add internal/ui/app/ cmd/qualle/main.go internal/config/config.go
+git add internal/ui/app/ cmd/fin/main.go internal/config/config.go
 git commit -m "feat: wire app root model with startup auth flow and main entrypoint"
 ```
 
@@ -2656,15 +2656,15 @@ Expected: all packages pass. Fix any remaining type assertion issues.
 - [ ] **Step 2: Build release binary**
 
 ```bash
-go build -o qualle ./cmd/qualle/
+go build -o fin ./cmd/fin/
 ```
 
-Expected: `./qualle` binary created.
+Expected: `./fin` binary created.
 
 - [ ] **Step 3: Verify binary starts**
 
 ```bash
-./qualle --help 2>&1 || ./qualle &
+./fin --help 2>&1 || ./fin &
 ```
 
 If no config file exists, login screen appears. `ctrl+c` to exit.
@@ -2672,7 +2672,7 @@ If no config file exists, login screen appears. `ctrl+c` to exit.
 - [ ] **Step 4: Add .gitignore**
 
 ```
-qualle
+fin
 *.test
 .superpowers/
 ```

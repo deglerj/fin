@@ -1,4 +1,4 @@
-# qualle — Jellyfin TUI Client: Design Spec
+# fin — Jellyfin TUI Client: Design Spec
 
 **Date:** 2026-05-10  
 **Language:** Go  
@@ -9,7 +9,7 @@
 
 ## 1. Overview
 
-`qualle` is a text-mode terminal UI client for Jellyfin. It covers browsing libraries, drilling into TV shows, global search, and random playback. Video and audio are delegated to mpv. The UI runs entirely in the terminal using bubbletea's Elm-style architecture.
+`fin` is a text-mode terminal UI client for Jellyfin. It covers browsing libraries, drilling into TV shows, global search, and random playback. Video and audio are delegated to mpv. The UI runs entirely in the terminal using bubbletea's Elm-style architecture.
 
 ### In scope (v1)
 - Library browsing (movies, TV shows; other types navigable but not primary)
@@ -36,7 +36,7 @@
 ### Module layout
 
 ```
-cmd/qualle/          entry point, flag parsing, tea.NewProgram
+cmd/fin/             entry point, flag parsing, tea.NewProgram
 internal/
   api/               Jellyfin HTTP client (hand-rolled)
   auth/              encrypted credential storage
@@ -59,8 +59,8 @@ The `app.Model` holds the current active page as a `tea.Model` interface value a
 
 ## 3. Startup & Authentication
 
-1. Load `$XDG_CONFIG_HOME/qualle/config.toml`
-2. Check for `$XDG_CONFIG_HOME/qualle/credentials` (mode 0600)
+1. Load `$XDG_CONFIG_HOME/fin/config.toml`
+2. Check for `$XDG_CONFIG_HOME/fin/credentials` (mode 0600)
 3. If found: decrypt → validate token with a lightweight Jellyfin API ping (`GET /Users/{id}/Items`)
 4. If valid: navigate directly to browser
 5. If missing or invalid: show login screen
@@ -142,7 +142,7 @@ All requests include `X-Emby-Token` header. Responses decoded into typed structs
 
 ## 6. mpv Integration (`internal/player/`)
 
-Uses bubbletea's `tea.ExecProcess` to hand terminal control to mpv and resume qualle cleanly on exit.
+Uses bubbletea's `tea.ExecProcess` to hand terminal control to mpv and resume fin cleanly on exit.
 
 ```go
 url := fmt.Sprintf("%s/Videos/%s/stream?api_key=%s&static=true", server, itemID, token)
@@ -174,7 +174,7 @@ If capability detection returns false, the image area is omitted. The details ov
 
 ## 8. Configuration (`internal/config/`)
 
-File: `$XDG_CONFIG_HOME/qualle/config.toml` (falls back to `~/.config/qualle/config.toml`)
+File: `$XDG_CONFIG_HOME/fin/config.toml` (falls back to `~/.config/fin/config.toml`)
 
 ```toml
 [server]
@@ -198,7 +198,7 @@ extra_args = []              # extra args passed to player
 # help    = "?"
 ```
 
-Credentials are stored separately in `$XDG_CONFIG_HOME/qualle/credentials` (binary, encrypted — not TOML).
+Credentials are stored separately in `$XDG_CONFIG_HOME/fin/credentials` (binary, encrypted — not TOML).
 
 ---
 
