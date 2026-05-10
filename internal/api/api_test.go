@@ -75,7 +75,7 @@ func TestGetItems(t *testing.T) {
 func TestSearch(t *testing.T) {
 	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("searchTerm") != "dune" {
-			t.Errorf("expected searchTerm=dune")
+			t.Errorf("expected searchTerm=dune, got %q", r.URL.Query().Get("searchTerm"))
 		}
 		json.NewEncoder(w).Encode(api.ItemsResponse{
 			Items: []api.Item{{Id: "m1", Name: "Dune"}},
