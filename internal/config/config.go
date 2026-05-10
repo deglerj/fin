@@ -52,7 +52,10 @@ func configDir() string {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		return filepath.Join(xdg, "fin")
 	}
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
+	}
 	return filepath.Join(home, ".config", "fin")
 }
 
