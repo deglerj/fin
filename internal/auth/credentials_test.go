@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/deglerj/fin/internal/auth"
+	"github.com/stretchr/testify/require"
 )
 
 type fixedID struct{}
@@ -23,37 +24,23 @@ func TestRoundTrip(t *testing.T) {
 		UserID:      "abc123",
 		AccessToken: "tok-xyz",
 	}
-	if err := auth.Save(creds, path, fixedID{}); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, auth.Save(creds, path, fixedID{}))
 	got, err := auth.LoadCreds(path, fixedID{})
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if got.AccessToken != creds.AccessToken {
-		t.Errorf("token mismatch: got %q", got.AccessToken)
-	}
-	if got.ServerURL != creds.ServerURL {
-		t.Errorf("url mismatch: got %q", got.ServerURL)
-	}
+	require.NoError(t, err)
+	require.Equal(t, creds.AccessToken, got.AccessToken)
+	require.Equal(t, creds.ServerURL, got.ServerURL)
 }
 
 func TestLoadMissing(t *testing.T) {
 	_, err := auth.LoadCreds("/nonexistent/path", fixedID{})
-	if err == nil {
-		t.Fatal("expected error for missing file")
-	}
+	require.Error(t, err)
 }
 
 func TestWrongKey(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "credentials")
 	creds := auth.Credentials{AccessToken: "secret"}
-	if err := auth.Save(creds, path, fixedID{}); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, auth.Save(creds, path, fixedID{}))
 	_, err := auth.LoadCreds(path, wrongKeyID{})
-	if err == nil {
-		t.Fatal("expected decryption to fail with different key")
-	}
+	require.Error(t, err)
 }

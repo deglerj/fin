@@ -1,4 +1,3 @@
-// internal/api/api_test.go
 package api_test
 
 import (
@@ -8,33 +7,28 @@ import (
 	"testing"
 
 	"github.com/deglerj/fin/internal/api"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func newTestServer(t *testing.T, handler http.Handler) (*httptest.Server, *api.Client) {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	c := api.New(srv.URL)
-	return srv, c
+	return srv, api.New(srv.URL)
 }
 
 func TestAuthenticate(t *testing.T) {
 	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/Users/AuthenticateByName" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
+		assert.Equal(t, "/Users/AuthenticateByName", r.URL.Path)
 		json.NewEncoder(w).Encode(api.AuthResponse{
 			User:        api.UserInfo{Id: "uid1", Name: "alice"},
 			AccessToken: "tok123",
 		})
 	}))
 	resp, err := client.Authenticate("alice", "password")
-	if err != nil {
-		t.Fatalf("Authenticate: %v", err)
-	}
-	if resp.AccessToken != "tok123" {
-		t.Errorf("expected tok123, got %q", resp.AccessToken)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "tok123", resp.AccessToken)
 }
 
 func TestGetLibraries(t *testing.T) {
@@ -45,59 +39,40 @@ func TestGetLibraries(t *testing.T) {
 	}))
 	client.SetAuth("uid1", "tok123")
 	libs, err := client.GetLibraries()
-	if err != nil {
-		t.Fatalf("GetLibraries: %v", err)
-	}
-	if len(libs) != 1 || libs[0].Name != "Movies" {
-		t.Errorf("unexpected libraries: %+v", libs)
-	}
+	require.NoError(t, err)
+	require.Len(t, libs, 1)
+	require.Equal(t, "Movies", libs[0].Name)
 }
 
 func TestGetItems(t *testing.T) {
 	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("ParentId") != "lib1" {
-			t.Errorf("expected ParentId=lib1, got %q", r.URL.Query().Get("ParentId"))
-		}
+		assert.Equal(t, "lib1", r.URL.Query().Get("ParentId"))
 		json.NewEncoder(w).Encode(api.ItemsResponse{
 			Items: []api.Item{{Id: "m1", Name: "Dune", Type: "Movie"}},
 		})
 	}))
 	client.SetAuth("uid1", "tok123")
 	items, err := client.GetItems("lib1", nil)
-	if err != nil {
-		t.Fatalf("GetItems: %v", err)
-	}
-	if len(items) != 1 {
-		t.Errorf("expected 1 item, got %d", len(items))
-	}
+	require.NoError(t, err)
+	require.Len(t, items, 1)
 }
 
 func TestSearch(t *testing.T) {
 	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("searchTerm") != "dune" {
-			t.Errorf("expected searchTerm=dune, got %q", r.URL.Query().Get("searchTerm"))
-		}
+		assert.Equal(t, "dune", r.URL.Query().Get("searchTerm"))
 		json.NewEncoder(w).Encode(api.ItemsResponse{
 			Items: []api.Item{{Id: "m1", Name: "Dune"}},
 		})
 	}))
 	client.SetAuth("uid1", "tok123")
 	items, err := client.Search("dune")
-	if err != nil {
-		t.Fatalf("Search: %v", err)
-	}
-	if len(items) != 1 {
-		t.Errorf("expected 1 result")
-	}
+	require.NoError(t, err)
+	require.Len(t, items, 1)
 }
 
 func TestStreamURL(t *testing.T) {
 	client := api.New("https://jf.example.com")
 	client.SetAuth("uid1", "tok")
 	item := api.Item{Id: "m1", Type: "Movie"}
-	url := client.StreamURL(item)
-	expected := "https://jf.example.com/Videos/m1/stream?api_key=tok&static=true"
-	if url != expected {
-		t.Errorf("got %q", url)
-	}
+	require.Equal(t, "https://jf.example.com/Videos/m1/stream?api_key=tok&static=true", client.StreamURL(item))
 }
