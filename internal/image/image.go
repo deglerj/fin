@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -64,7 +65,7 @@ func containsKittyResponse(b []byte) bool {
 func Encode(data []byte, cols, rows int) string {
 	const chunkSize = 4096
 	encoded := base64.StdEncoding.EncodeToString(data)
-	out := ""
+	var out strings.Builder
 	for i := 0; i < len(encoded); i += chunkSize {
 		end := i + chunkSize
 		if end > len(encoded) {
@@ -76,10 +77,10 @@ func Encode(data []byte, cols, rows int) string {
 			m = 0
 		}
 		if i == 0 {
-			out += fmt.Sprintf("\x1b_Ga=T,f=100,c=%d,r=%d,m=%d;%s\x1b\\", cols, rows, m, chunk)
+			fmt.Fprintf(&out, "\x1b_Ga=T,f=100,c=%d,r=%d,m=%d;%s\x1b\\", cols, rows, m, chunk)
 		} else {
-			out += fmt.Sprintf("\x1b_Gm=%d;%s\x1b\\", m, chunk)
+			fmt.Fprintf(&out, "\x1b_Gm=%d;%s\x1b\\", m, chunk)
 		}
 	}
-	return out
+	return out.String()
 }
