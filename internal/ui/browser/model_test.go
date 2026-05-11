@@ -51,3 +51,15 @@ func TestRandomSelection(t *testing.T) {
 	_, cmd := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
 	require.NotNil(t, cmd, "expected a command from random key")
 }
+
+func TestNilClientDrillIn(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	series := []api.Item{{Id: "s1", Name: "Breaking Bad", Type: "Series"}}
+	m2, _ := m.Update(msg.PushLevel{Items: series, LevelName: "Shows"})
+	// pressing enter on a Series with nil client should return an error cmd, not panic
+	_, cmd := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyEnter})
+	require.NotNil(t, cmd, "expected error cmd from nil client drill-in")
+	result := cmd()
+	_, isErr := result.(msg.AppError)
+	require.True(t, isErr, "expected AppError from nil client drill-in, got %T", result)
+}

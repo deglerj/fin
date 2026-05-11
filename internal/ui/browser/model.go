@@ -137,6 +137,9 @@ func isLeaf(item api.Item) bool {
 func (m Model) fetchChildren(item api.Item) tea.Cmd {
 	m.loading = true
 	client := m.client
+	if client == nil {
+		return func() tea.Msg { return msg.AppError{Err: fmt.Errorf("no client configured")} }
+	}
 	return func() tea.Msg {
 		var itemTypes []string
 		switch item.Type {
