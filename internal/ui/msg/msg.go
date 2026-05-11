@@ -32,6 +32,7 @@ type ItemDetailLoaded struct{ Item api.Item }
 type ImageLoaded struct{ Data []byte }
 type OpenSearch struct{}
 type SearchResults struct{ Items []api.Item }
+type NavigateToItem struct{ Item api.Item }
 type CloseOverlay struct{}
 
 // Playback
