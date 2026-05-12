@@ -79,7 +79,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = message.Width
 		m.height = message.Height
-		m.browser = browser.New(m.client, m.width, m.height-1)
+		m.browser = m.browser.WithSize(m.width, m.height-1)
 		m.details = m.details.WithSize(m.width, m.height)
 		return m, nil
 

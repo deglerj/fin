@@ -54,6 +54,8 @@ func (m Model) visibleHeight() int {
 	return m.height - 3 // breadcrumb + status + hint rows
 }
 
+func (m Model) WithSize(w, h int) Model { m.width = w; m.height = h; return m }
+
 func (m Model) Init() tea.Cmd { return m.spinner.Tick }
 
 func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
