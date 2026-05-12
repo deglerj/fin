@@ -67,7 +67,11 @@ func New(cfg *config.Config, client *api.Client, imageCapable bool) Model {
 func (m Model) Screen() ScreenKind { return m.screen }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.login.Init(), m.browser.Init())
+	cmds := []tea.Cmd{m.login.Init(), m.browser.Init()}
+	if m.screen == ScreenBrowser && m.client != nil {
+		cmds = append(cmds, m.fetchLibraries())
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
@@ -147,6 +151,9 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		if message.String() == "q" || message.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
 		if message.String() == "?" && m.overlay == overlayNone {
 			m.overlay = overlayHelp
 			return m, nil
