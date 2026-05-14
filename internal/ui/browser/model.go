@@ -2,6 +2,7 @@
 package browser
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -149,7 +150,7 @@ func (m Model) fetchChildren(item api.Item) tea.Cmd {
 		case "Season":
 			itemTypes = []string{"Episode"}
 		}
-		items, err := client.GetItems(item.Id, itemTypes)
+		items, err := client.GetItems(context.Background(), item.Id, itemTypes)
 		if err != nil {
 			return msg.AppError{Err: err}
 		}

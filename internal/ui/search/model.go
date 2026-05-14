@@ -2,6 +2,7 @@
 package search
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -52,7 +53,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, func() tea.Msg {
-			items, err := c.Search(term)
+			items, err := c.Search(context.Background(), term)
 			if err != nil {
 				return msg.AppError{Err: err}
 			}
