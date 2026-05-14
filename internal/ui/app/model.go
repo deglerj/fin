@@ -9,6 +9,7 @@ import (
 	"github.com/deglerj/fin/internal/api"
 	"github.com/deglerj/fin/internal/auth"
 	"github.com/deglerj/fin/internal/config"
+	"github.com/deglerj/fin/internal/image"
 	"github.com/deglerj/fin/internal/player"
 	"github.com/deglerj/fin/internal/ui/browser"
 	"github.com/deglerj/fin/internal/ui/details"
@@ -200,6 +201,9 @@ func (m Model) View() string {
 	}
 
 	var sb strings.Builder
+	if m.imageCapable && m.overlay != overlayDetails {
+		sb.WriteString(image.Delete())
+	}
 	sb.WriteString(base)
 
 	switch m.overlay {

@@ -60,6 +60,11 @@ func containsKittyResponse(b []byte) bool {
 	return false
 }
 
+// Delete returns the kitty graphics protocol escape to delete all visible image placements.
+func Delete() string {
+	return "\x1b_Ga=d\x1b\\"
+}
+
 // Encode encodes image bytes as a kitty graphics protocol string.
 // cols and rows are the desired terminal cell dimensions.
 func Encode(data []byte, cols, rows int) string {
