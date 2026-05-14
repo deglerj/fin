@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`fin` — a terminal UI client for Jellyfin. Go module: `github.com/deglerj/fin`. Binary: `./fin`. Repo dir is `qualle/` but the project/binary is named `fin`.
+`fin` — a terminal UI client for Jellyfin. Go module: `github.com/deglerj/fin`. Binary: `./fin`.
 
 ## Commands
 
