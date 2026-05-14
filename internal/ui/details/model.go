@@ -68,9 +68,13 @@ func (m Model) View() string {
 		return styles.Overlay.Width(m.width - 4).Render(styles.Dim.Render("Select an item to see details"))
 	}
 
-	var imgStr string
-	if m.imageCapable && len(m.imageData) > 0 {
-		imgStr = image.Encode(m.imageData, 20, 10) + "\n"
+	const imgCols = 20
+	showImage := m.imageCapable && len(m.imageData) > 0
+	sideBySide := showImage && m.width-imgCols-4 >= 30
+
+	textWidth := m.width - 4
+	if sideBySide {
+		textWidth = m.width - imgCols - 4
 	}
 
 	var sb strings.Builder
@@ -93,7 +97,7 @@ func (m Model) View() string {
 
 	if m.item.Overview != "" {
 		sb.WriteByte('\n')
-		sb.WriteString(wordWrap(m.item.Overview, m.width-4))
+		sb.WriteString(wordWrap(m.item.Overview, textWidth))
 		sb.WriteByte('\n')
 	}
 
@@ -115,7 +119,29 @@ func (m Model) View() string {
 		sb.WriteString(styles.Label.Render("Cast: ") + strings.Join(cast, ", ") + "\n")
 	}
 
-	return imgStr + styles.Overlay.Width(m.width-4).Render(sb.String())
+	textBox := styles.Overlay.Width(textWidth).Render(sb.String())
+
+	if !sideBySide {
+		if showImage {
+			return image.Encode(m.imageData, imgCols, 10) + "\n" + textBox
+		}
+		return textBox
+	}
+
+	imgRows := m.height - 2
+	if imgRows < 4 {
+		imgRows = 4
+	}
+
+	var result strings.Builder
+	result.WriteString(image.Encode(m.imageData, imgCols, imgRows))
+	result.WriteString(fmt.Sprintf("\x1b[%dA", imgRows))
+	for _, line := range strings.Split(textBox, "\n") {
+		result.WriteString(fmt.Sprintf("\x1b[%dC", imgCols))
+		result.WriteString(line)
+		result.WriteByte('\n')
+	}
+	return result.String()
 }
 
 func wordWrap(s string, width int) string {
