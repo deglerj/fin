@@ -27,7 +27,11 @@ var (
 		Bold(true)
 
 	StatusBar = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240"))
+			BorderTop(true).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("238")).
+			Background(lipgloss.Color("235")).
+			Foreground(lipgloss.Color("243"))
 
 	Overlay = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).

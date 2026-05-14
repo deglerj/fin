@@ -205,7 +205,7 @@ func (m Model) View() string {
 
 	count := fmt.Sprintf("%d items", len(top.items))
 	hint := "↑↓ navigate · enter open/play · / search · r random · q quit"
-	sb.WriteString(styles.StatusBar.Render(count + "  " + hint))
+	sb.WriteString(styles.StatusBar.Width(m.width).Render(count + "  " + hint))
 	return sb.String()
 }
 
