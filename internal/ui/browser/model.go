@@ -76,7 +76,6 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 	case msg.AppError:
 		m.loading = false
-		m.cancelFetch = nil
 		return m, nil
 
 	case spinner.TickMsg:
