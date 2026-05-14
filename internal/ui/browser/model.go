@@ -24,12 +24,13 @@ type level struct {
 }
 
 type Model struct {
-	client  *api.Client
-	stack   []level
-	width   int
-	height  int
-	loading bool
-	spinner spinner.Model
+	client      *api.Client
+	stack       []level
+	width       int
+	height      int
+	loading     bool
+	spinner     spinner.Model
+	cancelFetch context.CancelFunc
 }
 
 func New(client *api.Client, width, height int) Model {
@@ -63,6 +64,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch message := message.(type) {
 	case msg.PushLevel:
 		m.loading = false
+		m.cancelFetch = nil
 		m.stack = append(m.stack, level{name: message.LevelName, items: message.Items})
 		return m, nil
 
@@ -74,6 +76,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 	case msg.AppError:
 		m.loading = false
+		m.cancelFetch = nil
 		return m, nil
 
 	case spinner.TickMsg:
@@ -111,8 +114,13 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			if isLeaf(item) {
 				return m, func() tea.Msg { return msg.PlayItem{Item: item} }
 			}
+			if m.cancelFetch != nil {
+				m.cancelFetch()
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			m.cancelFetch = cancel
 			m.loading = true
-			return m, m.fetchChildren(item)
+			return m, m.fetchChildren(ctx, item)
 		case message.String() == "esc" || message.String() == "left":
 			if len(m.stack) > 1 {
 				m.stack = m.stack[:len(m.stack)-1]
@@ -142,7 +150,7 @@ func isLeaf(item api.Item) bool {
 	return false
 }
 
-func (m Model) fetchChildren(item api.Item) tea.Cmd {
+func (m Model) fetchChildren(ctx context.Context, item api.Item) tea.Cmd {
 	client := m.client
 	if client == nil {
 		return func() tea.Msg { return msg.AppError{Err: fmt.Errorf("no client configured")} }
@@ -155,7 +163,7 @@ func (m Model) fetchChildren(item api.Item) tea.Cmd {
 		case "Season":
 			itemTypes = []string{"Episode"}
 		}
-		items, err := client.GetItems(context.Background(), item.Id, itemTypes)
+		items, err := client.GetItems(ctx, item.Id, itemTypes)
 		if err != nil {
 			return msg.AppError{Err: err}
 		}
