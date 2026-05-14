@@ -21,10 +21,10 @@ func newTestServer(t *testing.T, handler http.Handler) (*httptest.Server, *api.C
 func TestAuthenticate(t *testing.T) {
 	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/Users/AuthenticateByName", r.URL.Path)
-		json.NewEncoder(w).Encode(api.AuthResponse{
+		assert.NoError(t, json.NewEncoder(w).Encode(api.AuthResponse{
 			User:        api.UserInfo{Id: "uid1", Name: "alice"},
 			AccessToken: "tok123",
-		})
+		}))
 	}))
 	resp, err := client.Authenticate("alice", "password")
 	require.NoError(t, err)
@@ -33,9 +33,9 @@ func TestAuthenticate(t *testing.T) {
 
 func TestGetLibraries(t *testing.T) {
 	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(api.LibraryResponse{
+		assert.NoError(t, json.NewEncoder(w).Encode(api.LibraryResponse{
 			Items: []api.Library{{Id: "lib1", Name: "Movies", CollectionType: "movies"}},
-		})
+		}))
 	}))
 	client.SetAuth("uid1", "tok123")
 	libs, err := client.GetLibraries()
@@ -47,9 +47,9 @@ func TestGetLibraries(t *testing.T) {
 func TestGetItems(t *testing.T) {
 	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "lib1", r.URL.Query().Get("ParentId"))
-		json.NewEncoder(w).Encode(api.ItemsResponse{
+		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
 			Items: []api.Item{{Id: "m1", Name: "Dune", Type: "Movie"}},
-		})
+		}))
 	}))
 	client.SetAuth("uid1", "tok123")
 	items, err := client.GetItems("lib1", nil)
@@ -60,9 +60,9 @@ func TestGetItems(t *testing.T) {
 func TestSearch(t *testing.T) {
 	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "dune", r.URL.Query().Get("searchTerm"))
-		json.NewEncoder(w).Encode(api.ItemsResponse{
+		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
 			Items: []api.Item{{Id: "m1", Name: "Dune"}},
-		})
+		}))
 	}))
 	client.SetAuth("uid1", "tok123")
 	items, err := client.Search("dune")

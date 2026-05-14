@@ -34,7 +34,7 @@ func probeTerminal(timeout time.Duration) bool {
 	}
 	defer restore(oldState)
 
-	fmt.Fprint(os.Stdout, "\x1b_Ga=q,s=1,v=1,i=1;\x1b\\")
+	_, _ = fmt.Fprint(os.Stdout, "\x1b_Ga=q,s=1,v=1,i=1;\x1b\\")
 
 	ch := make(chan bool, 1)
 	go func() {
