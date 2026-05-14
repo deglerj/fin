@@ -70,13 +70,13 @@ func (m Model) View() string {
 	if m.item.Id == "" {
 		return ""
 	}
-	var sb strings.Builder
 
+	var imgStr string
 	if m.imageCapable && len(m.imageData) > 0 {
-		sb.WriteString(image.Encode(m.imageData, 20, 10))
-		sb.WriteByte('\n')
+		imgStr = image.Encode(m.imageData, 20, 10) + "\n"
 	}
 
+	var sb strings.Builder
 	sb.WriteString(styles.Title.Render(m.item.Name))
 	if m.item.ProductionYear > 0 {
 		sb.WriteString(styles.Subtitle.Render(fmt.Sprintf(" (%d)", m.item.ProductionYear)))
@@ -120,7 +120,7 @@ func (m Model) View() string {
 
 	sb.WriteByte('\n')
 	sb.WriteString(styles.Dim.Render("enter to play · esc/i to close"))
-	return styles.Overlay.Width(m.width - 4).Render(sb.String())
+	return imgStr + styles.Overlay.Width(m.width-4).Render(sb.String())
 }
 
 func wordWrap(s string, width int) string {
