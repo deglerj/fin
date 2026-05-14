@@ -31,7 +31,6 @@ type overlayKind int
 
 const (
 	overlayNone overlayKind = iota
-	overlayDetails
 	overlaySearch
 	overlayHelp
 )
@@ -47,10 +46,11 @@ type Model struct {
 	details details.Model
 	search  search.Model
 
-	overlay  overlayKind
-	errorMsg string
-	width    int
-	height   int
+	overlay        overlayKind
+	selectedItemID string
+	errorMsg       string
+	width          int
+	height         int
 }
 
 func New(cfg *config.Config, client *api.Client, imageCapable bool) Model {
@@ -76,19 +76,47 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+func (m Model) detailsHeight() int {
+	h := m.height / 3
+	if h < 8 {
+		h = 8
+	}
+	return h
+}
+
+func (m Model) syncDetailsToSelection() (Model, tea.Cmd) {
+	sel := m.browser.SelectedItem()
+	if sel.Id == m.selectedItemID {
+		return m, nil
+	}
+	m.selectedItemID = sel.Id
+	var cmd tea.Cmd
+	m.details, cmd = asDetailsModel(m.details.Update(msg.OpenDetails{Item: sel}))
+	return m, cmd
+}
+
+func (m Model) updateBrowser(message tea.Msg) (Model, tea.Cmd) {
+	var browserCmd tea.Cmd
+	m.browser, browserCmd = asBrowserModel(m.browser.Update(message))
+	var detailsCmd tea.Cmd
+	m, detailsCmd = m.syncDetailsToSelection()
+	return m, tea.Batch(browserCmd, detailsCmd)
+}
+
 func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch message := message.(type) {
 	case tea.WindowSizeMsg:
 		m.width = message.Width
 		m.height = message.Height
-		m.browser = m.browser.WithSize(m.width, m.height-1)
-		m.details = m.details.WithSize(m.width, m.height)
+		dh := m.detailsHeight()
+		m.browser = m.browser.WithSize(m.width, m.height-dh-1)
+		m.details = m.details.WithSize(m.width, dh)
 		return m, nil
 
 	case msg.LoginSuccess:
 		m.client = api.New(message.ServerURL)
 		m.client.SetAuth(message.UserID, message.AccessToken)
-		m.browser = browser.New(m.client, m.width, m.height-1)
+		m.browser = browser.New(m.client, m.width, m.height-m.detailsHeight()-1)
 		m.search = search.New(m.client)
 		m.details = m.details.WithClient(m.client)
 		m.screen = ScreenBrowser
@@ -102,23 +130,13 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		for i, lib := range message.Libraries {
 			items[i] = api.Item{Id: lib.Id, Name: lib.Name, Type: "Folder"}
 		}
-		var cmd tea.Cmd
-		m.browser, cmd = asBrowserModel(m.browser.Update(msg.PushLevel{
-			Items: items, LevelName: "Libraries",
-		}))
-		return m, cmd
+		return m.updateBrowser(msg.PushLevel{Items: items, LevelName: "Libraries"})
 
 	case msg.NavigateToItem:
-		// Search result selected — close overlay and push item into browser
 		m.overlay = overlayNone
-		var cmd tea.Cmd
-		m.browser, cmd = asBrowserModel(m.browser.Update(msg.PushLevel{
-			Items: []api.Item{message.Item}, LevelName: message.Item.Name,
-		}))
-		return m, cmd
+		return m.updateBrowser(msg.PushLevel{Items: []api.Item{message.Item}, LevelName: message.Item.Name})
 
-	case msg.OpenDetails:
-		m.overlay = overlayDetails
+	case msg.ImageLoaded:
 		var cmd tea.Cmd
 		m.details, cmd = asDetailsModel(m.details.Update(message))
 		return m, cmd
@@ -172,11 +190,6 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Delegate to active overlay or screen
-	if m.overlay == overlayDetails {
-		var cmd tea.Cmd
-		m.details, cmd = asDetailsModel(m.details.Update(message))
-		return m, cmd
-	}
 	if m.overlay == overlaySearch {
 		var cmd tea.Cmd
 		m.search, cmd = asSearchModel(m.search.Update(message))
@@ -187,28 +200,25 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.login = updated.(login.Model)
 		return m, cmd
 	}
-	updated, cmd := m.browser.Update(message)
-	m.browser = updated.(browser.Model)
-	return m, cmd
+	return m.updateBrowser(message)
 }
 
 func (m Model) View() string {
-	var base string
-	if m.screen == ScreenLogin {
-		base = m.login.View()
-	} else {
-		base = m.browser.View()
-	}
-
 	var sb strings.Builder
-	if m.imageCapable && m.overlay != overlayDetails {
-		sb.WriteString(image.Delete())
+	if m.screen == ScreenLogin {
+		if m.imageCapable {
+			sb.WriteString(image.Delete())
+		}
+		sb.WriteString(m.login.View())
+	} else {
+		if m.imageCapable && !m.details.HasImage() {
+			sb.WriteString(image.Delete())
+		}
+		sb.WriteString(m.browser.View())
+		sb.WriteString("\n" + m.details.View())
 	}
-	sb.WriteString(base)
 
 	switch m.overlay {
-	case overlayDetails:
-		sb.WriteString("\n" + m.details.View())
 	case overlaySearch:
 		sb.WriteString("\n" + m.search.View())
 	case overlayHelp:

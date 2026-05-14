@@ -32,12 +32,16 @@ func New(imageCapable bool) Model {
 
 func (m Model) WithClient(c apiClient) Model { m.client = c; return m }
 func (m Model) WithSize(w, h int) Model      { m.width = w; m.height = h; return m }
+func (m Model) HasImage() bool               { return len(m.imageData) > 0 }
 
 func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch message := message.(type) {
 	case msg.OpenDetails:
+		if message.Item.Id == m.item.Id {
+			return m, nil
+		}
 		m.item = message.Item
 		m.imageData = nil
 		var cmd tea.Cmd
@@ -55,20 +59,13 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case msg.ImageLoaded:
 		m.imageData = message.Data
-	case tea.KeyMsg:
-		switch message.String() {
-		case "esc", "i":
-			return m, func() tea.Msg { return msg.CloseOverlay{} }
-		case "enter":
-			return m, func() tea.Msg { return msg.PlayItem{Item: m.item} }
-		}
 	}
 	return m, nil
 }
 
 func (m Model) View() string {
 	if m.item.Id == "" {
-		return ""
+		return styles.Overlay.Width(m.width - 4).Render(styles.Dim.Render("Select an item to see details"))
 	}
 
 	var imgStr string
@@ -118,8 +115,6 @@ func (m Model) View() string {
 		sb.WriteString(styles.Label.Render("Cast: ") + strings.Join(cast, ", ") + "\n")
 	}
 
-	sb.WriteByte('\n')
-	sb.WriteString(styles.Dim.Render("enter to play · esc/i to close"))
 	return imgStr + styles.Overlay.Width(m.width-4).Render(sb.String())
 }
 

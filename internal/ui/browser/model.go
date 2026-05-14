@@ -124,9 +124,6 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.stack) > 1 {
 				m.stack = m.stack[:len(m.stack)-1]
 			}
-		case message.String() == "i":
-			item := m.SelectedItem()
-			return m, func() tea.Msg { return msg.OpenDetails{Item: item} }
 		case message.String() == "/":
 			return m, func() tea.Msg { return msg.OpenSearch{} }
 		case message.String() == "r":
@@ -207,7 +204,7 @@ func (m Model) View() string {
 	}
 
 	count := fmt.Sprintf("%d items", len(top.items))
-	hint := "↑↓ navigate · enter open/play · i details · / search · r random · q quit"
+	hint := "↑↓ navigate · enter open/play · / search · r random · q quit"
 	sb.WriteString(styles.StatusBar.Render(count + "  " + hint))
 	return sb.String()
 }
