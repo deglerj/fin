@@ -10,7 +10,7 @@ import (
 type DoneMsg struct{ Err error }
 
 func BuildCmd(command string, extraArgs []string, url, title string) *exec.Cmd {
-	args := []string{url, fmt.Sprintf("--title=%s", title)}
+	args := []string{url, fmt.Sprintf("--title=%s", title), fmt.Sprintf("--force-media-title=%s", title)}
 	args = append(args, extraArgs...)
 	return exec.Command(command, args...)
 }
