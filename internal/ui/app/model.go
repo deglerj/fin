@@ -135,7 +135,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		url := m.client.StreamURL(message.Item)
-		return m, player.Play(m.cfg.Player.Command, m.cfg.Player.ExtraArgs, url, message.Item.Name)
+		return m, player.Play(m.cfg.Player.Command, m.cfg.Player.ExtraArgs, url, message.Item.MediaTitle())
 
 	case msg.PlayerDone:
 		if message.Err != nil {
