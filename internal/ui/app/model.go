@@ -145,6 +145,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 	case msg.AppError:
 		m.errorMsg = message.Err.Error()
+		m.browser, _ = asBrowserModel(m.browser.Update(message))
 		return m, nil
 
 	case msg.DismissError:

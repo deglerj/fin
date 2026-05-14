@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/deglerj/fin/internal/api"
 	"github.com/deglerj/fin/internal/ui/app"
 	"github.com/deglerj/fin/internal/ui/msg"
 	"github.com/stretchr/testify/require"
@@ -28,4 +30,21 @@ func TestErrorDisplayed(t *testing.T) {
 	m2, _ := m.Update(msg.AppError{Err: fmt.Errorf("network timeout")})
 	view := m2.(app.Model).View()
 	require.True(t, strings.Contains(view, "network timeout"), "error not in view: %q", view)
+}
+
+func TestAppErrorResetsBrowserLoading(t *testing.T) {
+	m := app.New(nil, nil, false)
+	// Transition to browser screen
+	m2, _ := m.Update(msg.LoginSuccess{ServerURL: "http://jf", UserID: "u1", AccessToken: "tok"})
+	// Push a series into the browser
+	m3, _ := m2.(app.Model).Update(msg.PushLevel{
+		Items:     []api.Item{{Id: "s1", Name: "Breaking Bad", Type: "Series"}},
+		LevelName: "Shows",
+	})
+	// Press enter — browser sets loading=true
+	m4, _ := m3.(app.Model).Update(tea.KeyMsg{Type: tea.KeyEnter})
+	require.Contains(t, m4.(app.Model).View(), "Loading...")
+	// Send AppError through app — should clear browser loading
+	m5, _ := m4.(app.Model).Update(msg.AppError{Err: fmt.Errorf("network error")})
+	require.NotContains(t, m5.(app.Model).View(), "Loading...")
 }
