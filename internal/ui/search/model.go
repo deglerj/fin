@@ -16,11 +16,12 @@ import (
 type debounceMsg struct{ seq int }
 
 type Model struct {
-	input   textinput.Model
-	results []api.Item
-	cursor  int
-	client  *api.Client
-	seq     int
+	input        textinput.Model
+	results      []api.Item
+	cursor       int
+	client       *api.Client
+	seq          int
+	cancelSearch context.CancelFunc
 }
 
 func New(client *api.Client) Model {
@@ -37,6 +38,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case msg.SearchResults:
 		m.results = message.Items
 		m.cursor = 0
+		m.cancelSearch = nil
 		return m, nil
 
 	case debounceMsg:
@@ -52,8 +54,13 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if c == nil {
 			return m, nil
 		}
+		if m.cancelSearch != nil {
+			m.cancelSearch()
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		m.cancelSearch = cancel
 		return m, func() tea.Msg {
-			items, err := c.Search(context.Background(), term)
+			items, err := c.Search(ctx, term)
 			if err != nil {
 				return msg.AppError{Err: err}
 			}
