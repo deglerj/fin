@@ -52,6 +52,24 @@ func TestRandomSelection(t *testing.T) {
 	require.NotNil(t, cmd, "expected a command from random key")
 }
 
+func TestLoadingSpinnerActivatesOnDrillIn(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	series := []api.Item{{Id: "s1", Name: "Breaking Bad", Type: "Series"}}
+	m2, _ := m.Update(msg.PushLevel{Items: series, LevelName: "Shows"})
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyEnter})
+	require.Contains(t, m3.(browser.Model).View(), "Loading...")
+}
+
+func TestLoadingResetOnAppError(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	series := []api.Item{{Id: "s1", Name: "Breaking Bad", Type: "Series"}}
+	m2, _ := m.Update(msg.PushLevel{Items: series, LevelName: "Shows"})
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyEnter})
+	// loading is now true
+	m4, _ := m3.(browser.Model).Update(msg.AppError{Err: fmt.Errorf("network error")})
+	require.NotContains(t, m4.(browser.Model).View(), "Loading...")
+}
+
 func TestNilClientDrillIn(t *testing.T) {
 	m := browser.New(nil, 80, 24)
 	series := []api.Item{{Id: "s1", Name: "Breaking Bad", Type: "Series"}}

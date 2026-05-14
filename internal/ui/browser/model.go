@@ -72,6 +72,10 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case msg.AppError:
+		m.loading = false
+		return m, nil
+
 	case spinner.TickMsg:
 		if m.loading {
 			var cmd tea.Cmd
@@ -107,6 +111,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			if isLeaf(item) {
 				return m, func() tea.Msg { return msg.PlayItem{Item: item} }
 			}
+			m.loading = true
 			return m, m.fetchChildren(item)
 		case message.String() == "esc" || message.String() == "left":
 			if len(m.stack) > 1 {
