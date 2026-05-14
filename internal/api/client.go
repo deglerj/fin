@@ -44,7 +44,7 @@ func (c *Client) get(path string, out any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("jellyfin: HTTP %d for %s", resp.StatusCode, path)
 	}
@@ -62,7 +62,7 @@ func (c *Client) getRaw(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("jellyfin: HTTP %d", resp.StatusCode)
 	}
@@ -80,7 +80,7 @@ func (c *Client) post(path string, body io.Reader, out any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("jellyfin: HTTP %d for %s", resp.StatusCode, path)
 	}

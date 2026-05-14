@@ -14,6 +14,6 @@ func makeRaw() (any, error) {
 
 func restore(state any) {
 	if s, ok := state.(*term.State); ok {
-		term.Restore(int(os.Stdin.Fd()), s)
+		_ = term.Restore(int(os.Stdin.Fd()), s)
 	}
 }
