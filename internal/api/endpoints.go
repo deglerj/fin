@@ -2,54 +2,68 @@
 package api
 
 import (
+	"context"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
-func (c *Client) Authenticate(username, password string) (AuthResponse, error) {
+func (c *Client) Authenticate(ctx context.Context, username, password string) (AuthResponse, error) {
 	body := fmt.Sprintf(`{"Username":%q,"Pw":%q}`, username, password)
 	var resp AuthResponse
-	err := c.post("/Users/AuthenticateByName", strings.NewReader(body), &resp)
+	err := c.post(ctx, "/Users/AuthenticateByName", strings.NewReader(body), &resp)
 	return resp, err
 }
 
-func (c *Client) ValidateToken() error {
+func (c *Client) ValidateToken(ctx context.Context) error {
 	var result map[string]any
-	return c.get(fmt.Sprintf("/Users/%s", c.userID), &result)
+	return c.get(ctx, fmt.Sprintf("/Users/%s", c.userID), &result)
 }
 
-func (c *Client) GetLibraries() ([]Library, error) {
+func (c *Client) GetLibraries(ctx context.Context) ([]Library, error) {
 	var resp LibraryResponse
-	err := c.get("/Library/MediaFolders", &resp)
+	err := c.get(ctx, "/Library/MediaFolders", &resp)
 	return resp.Items, err
 }
 
-func (c *Client) GetItems(parentID string, itemTypes []string) ([]Item, error) {
-	q := fmt.Sprintf("/Users/%s/Items?ParentId=%s&Limit=500", c.userID, parentID)
+func (c *Client) GetItems(ctx context.Context, parentID string, itemTypes []string) ([]Item, error) {
+	const pageSize = 500
+	typeFilter := ""
 	if len(itemTypes) > 0 {
-		q += "&IncludeItemTypes=" + strings.Join(itemTypes, ",")
+		typeFilter = "&IncludeItemTypes=" + strings.Join(itemTypes, ",")
 	}
-	var resp ItemsResponse
-	err := c.get(q, &resp)
-	return resp.Items, err
+	var all []Item
+	for startIndex := 0; ; startIndex += pageSize {
+		q := fmt.Sprintf("/Users/%s/Items?ParentId=%s&Limit=%d&StartIndex=%d%s",
+			c.userID, parentID, pageSize, startIndex, typeFilter)
+		var resp ItemsResponse
+		if err := c.get(ctx, q, &resp); err != nil {
+			return nil, err
+		}
+		all = append(all, resp.Items...)
+		if len(resp.Items) < pageSize || len(all) >= resp.TotalRecordCount {
+			break
+		}
+	}
+	return all, nil
 }
 
-func (c *Client) GetItem(id string) (Item, error) {
+func (c *Client) GetItem(ctx context.Context, id string) (Item, error) {
 	var item Item
-	err := c.get(fmt.Sprintf("/Users/%s/Items/%s", c.userID, id), &item)
+	err := c.get(ctx, fmt.Sprintf("/Users/%s/Items/%s", c.userID, id), &item)
 	return item, err
 }
 
-func (c *Client) Search(term string) ([]Item, error) {
+func (c *Client) Search(ctx context.Context, term string) ([]Item, error) {
 	q := fmt.Sprintf("/Items?searchTerm=%s&IncludeItemTypes=Movie,Series,Episode&Recursive=true&UserId=%s&Limit=20",
-		term, c.userID)
+		url.QueryEscape(term), c.userID)
 	var resp ItemsResponse
-	err := c.get(q, &resp)
+	err := c.get(ctx, q, &resp)
 	return resp.Items, err
 }
 
-func (c *Client) GetImage(itemID string, maxWidth int) ([]byte, error) {
-	return c.getRaw(fmt.Sprintf("/Items/%s/Images/Primary?MaxWidth=%d", itemID, maxWidth))
+func (c *Client) GetImage(ctx context.Context, itemID string, maxWidth int) ([]byte, error) {
+	return c.getRaw(ctx, fmt.Sprintf("/Items/%s/Images/Primary?MaxWidth=%d", itemID, maxWidth))
 }
 
 func (c *Client) StreamURL(item Item) string {

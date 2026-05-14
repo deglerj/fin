@@ -2,6 +2,7 @@
 package app
 
 import (
+	"context"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -221,7 +222,7 @@ func (m Model) fetchLibraries() tea.Cmd {
 		return nil
 	}
 	return func() tea.Msg {
-		libs, err := c.GetLibraries()
+		libs, err := c.GetLibraries(context.Background())
 		if err != nil {
 			return msg.AppError{Err: err}
 		}

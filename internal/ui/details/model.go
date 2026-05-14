@@ -2,6 +2,7 @@
 package details
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -22,7 +23,7 @@ type Model struct {
 }
 
 type apiClient interface {
-	GetImage(itemID string, maxWidth int) ([]byte, error)
+	GetImage(ctx context.Context, itemID string, maxWidth int) ([]byte, error)
 }
 
 func New(imageCapable bool) Model {
@@ -44,7 +45,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			itemID := message.Item.Id
 			c := m.client
 			cmd = func() tea.Msg {
-				data, err := c.GetImage(itemID, 200)
+				data, err := c.GetImage(context.Background(), itemID, 200)
 				if err != nil {
 					return nil
 				}

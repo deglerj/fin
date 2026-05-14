@@ -1,7 +1,9 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,7 +28,7 @@ func TestAuthenticate(t *testing.T) {
 			AccessToken: "tok123",
 		}))
 	}))
-	resp, err := client.Authenticate("alice", "password")
+	resp, err := client.Authenticate(context.Background(), "alice", "password")
 	require.NoError(t, err)
 	require.Equal(t, "tok123", resp.AccessToken)
 }
@@ -38,7 +40,7 @@ func TestGetLibraries(t *testing.T) {
 		}))
 	}))
 	client.SetAuth("uid1", "tok123")
-	libs, err := client.GetLibraries()
+	libs, err := client.GetLibraries(context.Background())
 	require.NoError(t, err)
 	require.Len(t, libs, 1)
 	require.Equal(t, "Movies", libs[0].Name)
@@ -52,9 +54,32 @@ func TestGetItems(t *testing.T) {
 		}))
 	}))
 	client.SetAuth("uid1", "tok123")
-	items, err := client.GetItems("lib1", nil)
+	items, err := client.GetItems(context.Background(), "lib1", nil)
 	require.NoError(t, err)
 	require.Len(t, items, 1)
+}
+
+func TestGetItemsPagination(t *testing.T) {
+	var capturedStartIndexes []string
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		si := r.URL.Query().Get("StartIndex")
+		capturedStartIndexes = append(capturedStartIndexes, si)
+		var items []api.Item
+		if si == "0" {
+			items = make([]api.Item, 500)
+			for i := range items {
+				items[i] = api.Item{Id: fmt.Sprintf("id%d", i), Name: fmt.Sprintf("Item %d", i), Type: "Movie"}
+			}
+		} else {
+			items = []api.Item{{Id: "id500", Name: "Item 500", Type: "Movie"}}
+		}
+		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{Items: items, TotalRecordCount: 501}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	items, err := client.GetItems(context.Background(), "lib1", nil)
+	require.NoError(t, err)
+	require.Len(t, items, 501)
+	require.Equal(t, []string{"0", "500"}, capturedStartIndexes)
 }
 
 func TestSearch(t *testing.T) {
@@ -65,9 +90,21 @@ func TestSearch(t *testing.T) {
 		}))
 	}))
 	client.SetAuth("uid1", "tok123")
-	items, err := client.Search("dune")
+	items, err := client.Search(context.Background(), "dune")
 	require.NoError(t, err)
 	require.Len(t, items, 1)
+}
+
+func TestSearchSpecialCharsURLEncoded(t *testing.T) {
+	var captured string
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		captured = r.URL.Query().Get("searchTerm")
+		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	_, err := client.Search(context.Background(), "breaking&bad")
+	require.NoError(t, err)
+	require.Equal(t, "breaking&bad", captured)
 }
 
 func TestStreamURL(t *testing.T) {

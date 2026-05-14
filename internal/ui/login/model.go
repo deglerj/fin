@@ -2,6 +2,7 @@
 package login
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -119,7 +120,7 @@ func submit(m Model) (tea.Model, tea.Cmd) {
 	m.errorMsg = ""
 	client := api.New(serverURL)
 	return m, tea.Batch(m.spinner.Tick, func() tea.Msg {
-		resp, err := client.Authenticate(username, password)
+		resp, err := client.Authenticate(context.Background(), username, password)
 		if err != nil {
 			return msg.LoginError{Err: err}
 		}

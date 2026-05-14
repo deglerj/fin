@@ -2,6 +2,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,8 +32,8 @@ func (c *Client) SetAuth(userID, token string) {
 	c.token = token
 }
 
-func (c *Client) get(path string, out any) error {
-	req, err := http.NewRequest("GET", c.baseURL+path, nil)
+func (c *Client) get(ctx context.Context, path string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+path, nil)
 	if err != nil {
 		return err
 	}
@@ -51,8 +52,8 @@ func (c *Client) get(path string, out any) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-func (c *Client) getRaw(path string) ([]byte, error) {
-	req, err := http.NewRequest("GET", c.baseURL+path, nil)
+func (c *Client) getRaw(ctx context.Context, path string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -69,8 +70,8 @@ func (c *Client) getRaw(path string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func (c *Client) post(path string, body io.Reader, out any) error {
-	req, err := http.NewRequest("POST", c.baseURL+path, body)
+func (c *Client) post(ctx context.Context, path string, body io.Reader, out any) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+path, body)
 	if err != nil {
 		return err
 	}
