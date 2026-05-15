@@ -197,6 +197,12 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	if m.overlay == overlaySearch {
 		var cmd tea.Cmd
 		m.search, cmd = asSearchModel(m.search.Update(message))
+		if sel := m.search.SelectedItem(); sel != nil && sel.Id != m.selectedItemID {
+			m.selectedItemID = sel.Id
+			var detCmd tea.Cmd
+			m.details, detCmd = asDetailsModel(m.details.Update(msg.OpenDetails{Item: *sel}))
+			cmd = tea.Batch(cmd, detCmd)
+		}
 		return m, cmd
 	}
 	if m.screen == ScreenLogin {

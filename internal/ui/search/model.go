@@ -34,6 +34,14 @@ func New(client *api.Client) Model {
 
 func (m Model) WithWidth(w int) Model { m.width = w; return m }
 
+func (m Model) SelectedItem() *api.Item {
+	if m.cursor >= 0 && m.cursor < len(m.results) {
+		item := m.results[m.cursor]
+		return &item
+	}
+	return nil
+}
+
 func (m Model) Init() tea.Cmd { return textinput.Blink }
 
 func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
