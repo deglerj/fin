@@ -271,6 +271,9 @@ func (m Model) View() string {
 		} else {
 			line = formatItem(item)
 		}
+		if m.width > 0 {
+			line = truncate(line, m.width)
+		}
 		if i == top.cursor {
 			sb.WriteString(styles.Selected.Width(m.width).Render(line))
 		} else {
@@ -288,6 +291,14 @@ func (m Model) View() string {
 	line2 := "/ search · r random · q quit"
 	sb.WriteString(styles.StatusBar.Width(m.width).Render(line1 + "\n" + line2))
 	return sb.String()
+}
+
+func truncate(s string, maxWidth int) string {
+	runes := []rune(s)
+	if len(runes) <= maxWidth {
+		return s
+	}
+	return string(runes[:maxWidth-1]) + "…"
 }
 
 func formatItem(item api.Item) string {
