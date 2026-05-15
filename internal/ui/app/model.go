@@ -230,13 +230,17 @@ func (m Model) View() string {
 	case overlayHelp:
 		leftView = lipgloss.NewStyle().Width(bw).Height(m.height).Render(help.View())
 	default:
-		leftView = m.browser.View()
+		leftView = lipgloss.NewStyle().Width(bw).Height(m.height).Render(m.browser.View())
 	}
 
-	sb.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftView, m.details.View()))
+	if m.browser.IsLoading() {
+		sb.WriteString(leftView)
+	} else {
+		sb.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftView, m.details.View()))
+	}
 
 	if m.imageCapable {
-		if m.details.HasImage() {
+		if !m.browser.IsLoading() && m.details.HasImage() {
 			// Place image after text so it renders on top of the reserved blank rows.
 			// \x1b[2;{bw+2}H = row 2 (below details top border), col bw+2 (inside left border).
 			sb.WriteString("\x1b7")

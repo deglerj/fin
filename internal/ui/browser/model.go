@@ -57,6 +57,7 @@ func (m Model) visibleHeight() int {
 }
 
 func (m Model) WithSize(w, h int) Model { m.width = w; m.height = h; return m }
+func (m Model) IsLoading() bool         { return m.loading || len(m.stack) == 0 }
 
 func (m Model) Init() tea.Cmd { return m.spinner.Tick }
 

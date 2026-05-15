@@ -12,7 +12,7 @@ import (
 )
 
 func TestDetailsView(t *testing.T) {
-	m := details.New(false)
+	m := details.New(false).WithSize(40, 20)
 	m2, _ := m.Update(msg.OpenDetails{Item: api.Item{
 		Id: "m1", Name: "Dune", ProductionYear: 2021,
 		Overview: "A noble family becomes embroiled in a war.",

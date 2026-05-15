@@ -85,6 +85,9 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
+	if m.width == 0 || m.height == 0 {
+		return ""
+	}
 	textWidth := m.width - 4
 	if textWidth <= 0 {
 		textWidth = 76
