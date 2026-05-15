@@ -17,11 +17,13 @@ import (
 )
 
 type level struct {
-	name    string
-	items   []api.Item
-	cursor  int
-	offset  int
-	hasBack bool
+	name         string
+	parentID     string
+	items        []api.Item
+	cursor       int
+	offset       int
+	hasBack      bool
+	revalidating bool
 }
 
 func (l level) displayLen() int {
@@ -45,6 +47,7 @@ func (l level) itemAt(displayIdx int) (api.Item, bool) {
 
 type Model struct {
 	client      *api.Client
+	cache       map[string][]api.Item
 	stack       []level
 	width       int
 	height      int
@@ -56,7 +59,7 @@ type Model struct {
 func New(client *api.Client, width, height int) Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	return Model{client: client, width: width, height: height, spinner: sp}
+	return Model{client: client, cache: make(map[string][]api.Item), width: width, height: height, spinner: sp}
 }
 
 func (m Model) Depth() int { return len(m.stack) }
@@ -92,7 +95,20 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if hasBack {
 			cursor = 1
 		}
-		m.stack = append(m.stack, level{name: message.LevelName, items: message.Items, hasBack: hasBack, cursor: cursor})
+		if message.ParentID != "" {
+			m.cache[message.ParentID] = message.Items
+		}
+		m.stack = append(m.stack, level{name: message.LevelName, parentID: message.ParentID, items: message.Items, hasBack: hasBack, cursor: cursor})
+		return m, nil
+
+	case msg.RefreshLevel:
+		m.cache[message.ParentID] = message.Items
+		for i, l := range m.stack {
+			if l.parentID == message.ParentID {
+				m.stack[i].items = message.Items
+				m.stack[i].revalidating = false
+			}
+		}
 		return m, nil
 
 	case msg.PopLevel:
@@ -103,6 +119,9 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 	case msg.AppError:
 		m.loading = false
+		if len(m.stack) > 0 {
+			m.stack[len(m.stack)-1].revalidating = false
+		}
 		return m, nil
 
 	case spinner.TickMsg:
@@ -151,8 +170,24 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			ctx, cancel := context.WithCancel(context.Background())
 			m.cancelFetch = cancel
+			if cached, ok := m.cache[item.Id]; ok {
+				hasBack := len(m.stack) > 0
+				cursor := 0
+				if hasBack {
+					cursor = 1
+				}
+				m.stack = append(m.stack, level{
+					name:         item.Name,
+					parentID:     item.Id,
+					items:        cached,
+					hasBack:      hasBack,
+					cursor:       cursor,
+					revalidating: true,
+				})
+				return m, m.fetchChildren(ctx, item, true)
+			}
 			m.loading = true
-			return m, m.fetchChildren(ctx, item)
+			return m, m.fetchChildren(ctx, item, false)
 		case message.String() == "esc" || message.String() == "left" || message.String() == "backspace":
 			if len(m.stack) > 1 {
 				m.stack = m.stack[:len(m.stack)-1]
@@ -179,7 +214,7 @@ func isLeaf(item api.Item) bool {
 	return false
 }
 
-func (m Model) fetchChildren(ctx context.Context, item api.Item) tea.Cmd {
+func (m Model) fetchChildren(ctx context.Context, item api.Item, isRefresh bool) tea.Cmd {
 	client := m.client
 	if client == nil {
 		return func() tea.Msg { return msg.AppError{Err: fmt.Errorf("no client configured")} }
@@ -196,7 +231,10 @@ func (m Model) fetchChildren(ctx context.Context, item api.Item) tea.Cmd {
 		if err != nil {
 			return msg.AppError{Err: err}
 		}
-		return msg.PushLevel{Items: items, LevelName: item.Name}
+		if isRefresh {
+			return msg.RefreshLevel{ParentID: item.Id, Items: items}
+		}
+		return msg.PushLevel{ParentID: item.Id, Items: items, LevelName: item.Name}
 	}
 }
 
@@ -242,7 +280,11 @@ func (m Model) View() string {
 	}
 
 	count := fmt.Sprintf("%d items", len(top.items))
-	line1 := count + "  ↑↓ navigate · enter open · ⌫/esc/← back"
+	revalidating := ""
+	if top.revalidating {
+		revalidating = " [~]"
+	}
+	line1 := count + revalidating + "  ↑↓ navigate · enter open · ⌫/esc/← back"
 	line2 := "/ search · r random · q quit"
 	sb.WriteString(styles.StatusBar.Width(m.width).Render(line1 + "\n" + line2))
 	return sb.String()

@@ -23,8 +23,13 @@ type ItemsLoaded struct {
 type PushLevel struct {
 	Items     []api.Item
 	LevelName string
+	ParentID  string
 }
 type PopLevel struct{}
+type RefreshLevel struct {
+	Items    []api.Item
+	ParentID string
+}
 
 // Overlays
 type OpenDetails struct{ Item api.Item }

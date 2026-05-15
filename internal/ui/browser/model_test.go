@@ -81,3 +81,54 @@ func TestNilClientDrillIn(t *testing.T) {
 	_, isErr := result.(msg.AppError)
 	require.True(t, isErr, "expected AppError from nil client drill-in, got %T", result)
 }
+
+func makeSWRModel(t *testing.T) (browser.Model, []api.Item) {
+	t.Helper()
+	m := browser.New(nil, 80, 24)
+	series := api.Item{Id: "s1", Name: "Breaking Bad", Type: "Series"}
+	m2, _ := m.Update(msg.PushLevel{LevelName: "Libraries", Items: []api.Item{series}})
+	seasons := makeItems("Season 1", "Season 2")
+	// PushLevel with ParentID populates the cache
+	m3, _ := m2.(browser.Model).Update(msg.PushLevel{ParentID: "s1", LevelName: "Seasons", Items: seasons})
+	m4, _ := m3.(browser.Model).Update(msg.PopLevel{})
+	return m4.(browser.Model), seasons
+}
+
+func TestSWRCacheHitSkipsLoadingSpinner(t *testing.T) {
+	m, seasons := makeSWRModel(t)
+	m2, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	bm := m2.(browser.Model)
+	require.False(t, bm.IsLoading(), "cache hit should skip loading spinner")
+	require.Equal(t, seasons[0].Name, bm.SelectedItem().Name)
+}
+
+func TestSWRCacheHitTriggersBackgroundRefresh(t *testing.T) {
+	m, _ := makeSWRModel(t)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	require.NotNil(t, cmd, "cache hit should return background refresh cmd")
+}
+
+func TestRefreshLevelUpdatesCurrentLevel(t *testing.T) {
+	m, _ := makeSWRModel(t)
+	m2, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	freshSeasons := []api.Item{
+		{Id: "new1", Name: "Season 1 Updated", Type: "Season"},
+		{Id: "new2", Name: "Season 2 New", Type: "Season"},
+	}
+	m3, _ := m2.(browser.Model).Update(msg.RefreshLevel{ParentID: "s1", Items: freshSeasons})
+	bm := m3.(browser.Model)
+	require.Equal(t, "Season 1 Updated", bm.SelectedItem().Name)
+}
+
+func TestSWRRevalidatingIndicatorShown(t *testing.T) {
+	m, _ := makeSWRModel(t)
+	m2, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	require.Contains(t, m2.(browser.Model).View(), "[~]", "revalidating indicator should be shown")
+}
+
+func TestSWRRevalidatingIndicatorClearedAfterRefresh(t *testing.T) {
+	m, _ := makeSWRModel(t)
+	m2, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m3, _ := m2.(browser.Model).Update(msg.RefreshLevel{ParentID: "s1", Items: makeItems("Season 1 Updated")})
+	require.NotContains(t, m3.(browser.Model).View(), "[~]", "revalidating indicator should clear after refresh")
+}
