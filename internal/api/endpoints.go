@@ -34,7 +34,7 @@ func (c *Client) GetItems(ctx context.Context, parentID string, itemTypes []stri
 	}
 	var all []Item
 	for startIndex := 0; ; startIndex += pageSize {
-		q := fmt.Sprintf("/Users/%s/Items?ParentId=%s&Limit=%d&StartIndex=%d%s",
+		q := fmt.Sprintf("/Users/%s/Items?ParentId=%s&Limit=%d&StartIndex=%d&Fields=Overview,People,CommunityRating,ProductionYear%s",
 			c.userID, parentID, pageSize, startIndex, typeFilter)
 		var resp ItemsResponse
 		if err := c.get(ctx, q, &resp); err != nil {
@@ -55,15 +55,15 @@ func (c *Client) GetItem(ctx context.Context, id string) (Item, error) {
 }
 
 func (c *Client) Search(ctx context.Context, term string) ([]Item, error) {
-	q := fmt.Sprintf("/Items?searchTerm=%s&IncludeItemTypes=Movie,Series,Episode&Recursive=true&UserId=%s&Limit=20",
+	q := fmt.Sprintf("/Items?searchTerm=%s&IncludeItemTypes=Movie,Series,Episode&Recursive=true&UserId=%s&Limit=20&Fields=Overview,People,CommunityRating,ProductionYear",
 		url.QueryEscape(term), c.userID)
 	var resp ItemsResponse
 	err := c.get(ctx, q, &resp)
 	return resp.Items, err
 }
 
-func (c *Client) GetImage(ctx context.Context, itemID string, maxWidth int) ([]byte, error) {
-	return c.getRaw(ctx, fmt.Sprintf("/Items/%s/Images/Primary?MaxWidth=%d", itemID, maxWidth))
+func (c *Client) GetImage(ctx context.Context, itemID string, maxWidth, maxHeight int) ([]byte, error) {
+	return c.getRaw(ctx, fmt.Sprintf("/Items/%s/Images/Primary?MaxWidth=%d&MaxHeight=%d", itemID, maxWidth, maxHeight))
 }
 
 func (c *Client) StreamURL(item Item) string {

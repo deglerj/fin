@@ -22,7 +22,7 @@ type Model struct {
 }
 
 type apiClient interface {
-	GetImage(ctx context.Context, itemID string, maxWidth int) ([]byte, error)
+	GetImage(ctx context.Context, itemID string, maxWidth, maxHeight int) ([]byte, error)
 }
 
 func New(imageCapable bool) Model {
@@ -56,12 +56,16 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if m.imageCapable && m.client != nil {
 			itemID := message.Item.Id
 			c := m.client
-			maxW := m.width - 4
-			if maxW < 8 {
-				maxW = 8
+			imgCols := m.width - 4
+			if imgCols < 8 {
+				imgCols = 8
 			}
+			imgRows := m.ImageRows()
+			// Multiply terminal cells by approximate pixel dimensions (9×20) to get real pixel size.
+			maxW := imgCols * 9
+			maxH := imgRows * 20
 			cmd = func() tea.Msg {
-				data, err := c.GetImage(context.Background(), itemID, maxW)
+				data, err := c.GetImage(context.Background(), itemID, maxW, maxH)
 				if err != nil {
 					return nil
 				}
