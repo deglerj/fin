@@ -22,6 +22,7 @@ type Model struct {
 	client       *api.Client
 	seq          int
 	cancelSearch context.CancelFunc
+	width        int
 }
 
 func New(client *api.Client) Model {
@@ -30,6 +31,8 @@ func New(client *api.Client) Model {
 	ti.Focus()
 	return Model{input: ti, client: client}
 }
+
+func (m Model) WithWidth(w int) Model { m.width = w; return m }
 
 func (m Model) Init() tea.Cmd { return textinput.Blink }
 
@@ -100,6 +103,14 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func truncate(s string, maxWidth int) string {
+	runes := []rune(s)
+	if len(runes) <= maxWidth {
+		return s
+	}
+	return string(runes[:maxWidth-1]) + "…"
+}
+
 func (m Model) View() string {
 	var sb strings.Builder
 	sb.WriteString(styles.Label.Render("Search: "))
@@ -111,6 +122,9 @@ func (m Model) View() string {
 		line := item.Name
 		if item.Type == "Episode" {
 			line = item.SeriesName + " – " + item.Name
+		}
+		if m.width > 0 {
+			line = truncate(line, m.width-4)
 		}
 		if i == m.cursor {
 			sb.WriteString(styles.Selected.Render(line))

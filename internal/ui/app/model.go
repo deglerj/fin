@@ -113,6 +113,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		bw := m.browserWidth()
 		m.browser = m.browser.WithSize(bw, m.height)
 		m.details = m.details.WithSize(m.width-bw, m.height)
+		m.search = m.search.WithWidth(m.width)
 		return m, nil
 
 	case msg.LoginSuccess:
@@ -120,7 +121,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.client.SetAuth(message.UserID, message.AccessToken)
 		bw := m.browserWidth()
 		m.browser = browser.New(m.client, bw, m.height)
-		m.search = search.New(m.client)
+		m.search = search.New(m.client).WithWidth(m.width)
 		m.details = m.details.WithClient(m.client)
 		m.screen = ScreenBrowser
 		if m.cfg != nil {
