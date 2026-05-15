@@ -82,7 +82,7 @@ func Encode(data []byte, cols, rows int) string {
 			m = 0
 		}
 		if i == 0 {
-			fmt.Fprintf(&out, "\x1b_Ga=T,f=100,c=%d,r=%d,m=%d;%s\x1b\\", cols, rows, m, chunk)
+			fmt.Fprintf(&out, "\x1b_Ga=T,f=100,c=%d,r=%d,C=1,m=%d;%s\x1b\\", cols, rows, m, chunk)
 		} else {
 			fmt.Fprintf(&out, "\x1b_Gm=%d;%s\x1b\\", m, chunk)
 		}

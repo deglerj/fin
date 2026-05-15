@@ -8,7 +8,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/deglerj/fin/internal/api"
-	"github.com/deglerj/fin/internal/image"
 	"github.com/deglerj/fin/internal/ui/msg"
 	"github.com/deglerj/fin/internal/ui/styles"
 )
@@ -33,6 +32,15 @@ func New(imageCapable bool) Model {
 func (m Model) WithClient(c apiClient) Model { m.client = c; return m }
 func (m Model) WithSize(w, h int) Model      { m.width = w; m.height = h; return m }
 func (m Model) HasImage() bool               { return len(m.imageData) > 0 }
+func (m Model) ImageData() []byte            { return m.imageData }
+
+func (m Model) ImageRows() int {
+	r := (m.height - 2) / 2
+	if r < 4 {
+		r = 4
+	}
+	return r
+}
 
 func (m Model) Init() tea.Cmd { return nil }
 
@@ -48,8 +56,12 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if m.imageCapable && m.client != nil {
 			itemID := message.Item.Id
 			c := m.client
+			maxW := m.width - 4
+			if maxW < 8 {
+				maxW = 8
+			}
 			cmd = func() tea.Msg {
-				data, err := c.GetImage(context.Background(), itemID, 200)
+				data, err := c.GetImage(context.Background(), itemID, maxW)
 				if err != nil {
 					return nil
 				}
@@ -64,84 +76,68 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	if m.item.Id == "" {
-		return styles.Overlay.Width(m.width - 4).Render(styles.Dim.Render("Select an item to see details"))
-	}
-
-	const imgCols = 20
-	showImage := m.imageCapable && len(m.imageData) > 0
-	sideBySide := showImage && m.width-imgCols-4 >= 30
-
 	textWidth := m.width - 4
-	if sideBySide {
-		textWidth = m.width - imgCols - 4
+	if textWidth <= 0 {
+		textWidth = 76
 	}
 
-	var sb strings.Builder
-	sb.WriteString(styles.Title.Render(m.item.Name))
-	if m.item.ProductionYear > 0 {
-		sb.WriteString(styles.Subtitle.Render(fmt.Sprintf(" (%d)", m.item.ProductionYear)))
-	}
-	sb.WriteByte('\n')
+	var content strings.Builder
 
-	if m.item.RunTimeTicks > 0 {
-		mins := m.item.RunTimeTicks / 600_000_000
-		sb.WriteString(styles.Dim.Render(fmt.Sprintf("%dh%02dm", mins/60, mins%60)))
-		sb.WriteByte('\n')
+	if m.HasImage() {
+		for i := 0; i < m.ImageRows(); i++ {
+			content.WriteByte('\n')
+		}
 	}
 
-	if m.item.CommunityRating > 0 {
-		sb.WriteString(styles.Dim.Render(fmt.Sprintf("★ %.1f", m.item.CommunityRating)))
-		sb.WriteByte('\n')
-	}
+	if m.item.Id == "" {
+		content.WriteString(styles.Dim.Render("Select an item\nto see details"))
+	} else {
+		content.WriteString(styles.Title.Render(m.item.Name))
+		if m.item.ProductionYear > 0 {
+			content.WriteString(styles.Subtitle.Render(fmt.Sprintf(" (%d)", m.item.ProductionYear)))
+		}
+		content.WriteByte('\n')
 
-	if m.item.Overview != "" {
-		sb.WriteByte('\n')
-		sb.WriteString(wordWrap(m.item.Overview, textWidth))
-		sb.WriteByte('\n')
-	}
+		if m.item.RunTimeTicks > 0 {
+			mins := m.item.RunTimeTicks / 600_000_000
+			content.WriteString(styles.Dim.Render(fmt.Sprintf("%dh%02dm", mins/60, mins%60)))
+			content.WriteByte('\n')
+		}
 
-	var directors, cast []string
-	for _, p := range m.item.People {
-		switch p.Type {
-		case "Director":
-			directors = append(directors, p.Name)
-		case "Actor":
-			if len(cast) < 5 {
-				cast = append(cast, p.Name)
+		if m.item.CommunityRating > 0 {
+			content.WriteString(styles.Dim.Render(fmt.Sprintf("★ %.1f", m.item.CommunityRating)))
+			content.WriteByte('\n')
+		}
+
+		if m.item.Overview != "" {
+			content.WriteByte('\n')
+			content.WriteString(wordWrap(m.item.Overview, textWidth))
+			content.WriteByte('\n')
+		}
+
+		var directors, cast []string
+		for _, p := range m.item.People {
+			switch p.Type {
+			case "Director":
+				directors = append(directors, p.Name)
+			case "Actor":
+				if len(cast) < 5 {
+					cast = append(cast, p.Name)
+				}
 			}
 		}
-	}
-	if len(directors) > 0 {
-		sb.WriteString(styles.Label.Render("Director: ") + strings.Join(directors, ", ") + "\n")
-	}
-	if len(cast) > 0 {
-		sb.WriteString(styles.Label.Render("Cast: ") + strings.Join(cast, ", ") + "\n")
-	}
-
-	textBox := styles.Overlay.Width(textWidth).Render(sb.String())
-
-	if !sideBySide {
-		if showImage {
-			return image.Encode(m.imageData, imgCols, 10) + "\n" + textBox
+		if len(directors) > 0 {
+			content.WriteString(styles.Label.Render("Director: ") + strings.Join(directors, ", ") + "\n")
 		}
-		return textBox
+		if len(cast) > 0 {
+			content.WriteString(styles.Label.Render("Cast: ") + strings.Join(cast, ", ") + "\n")
+		}
 	}
 
-	imgRows := m.height - 2
-	if imgRows < 4 {
-		imgRows = 4
+	if m.height > 0 && m.width > 0 {
+		return styles.Overlay.Width(m.width - 2).Height(m.height - 2).MaxHeight(m.height).Render(content.String())
 	}
-
-	var result strings.Builder
-	result.WriteString(image.Encode(m.imageData, imgCols, imgRows))
-	result.WriteString(fmt.Sprintf("\x1b[%dA", imgRows))
-	for _, line := range strings.Split(textBox, "\n") {
-		result.WriteString(fmt.Sprintf("\x1b[%dC", imgCols))
-		result.WriteString(line)
-		result.WriteByte('\n')
-	}
-	return result.String()
+	return styles.Overlay.Render(content.String())
 }
 
 func wordWrap(s string, width int) string {

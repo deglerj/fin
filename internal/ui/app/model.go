@@ -3,9 +3,11 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/deglerj/fin/internal/api"
 	"github.com/deglerj/fin/internal/auth"
 	"github.com/deglerj/fin/internal/config"
@@ -76,12 +78,12 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-func (m Model) detailsHeight() int {
-	h := m.height / 3
-	if h < 8 {
-		h = 8
+func (m Model) browserWidth() int {
+	bw := m.width * 2 / 3
+	if m.width > 0 && bw < 20 {
+		bw = 20
 	}
-	return h
+	return bw
 }
 
 func (m Model) syncDetailsToSelection() (Model, tea.Cmd) {
@@ -108,15 +110,16 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = message.Width
 		m.height = message.Height
-		dh := m.detailsHeight()
-		m.browser = m.browser.WithSize(m.width, m.height-dh-1)
-		m.details = m.details.WithSize(m.width, dh)
+		bw := m.browserWidth()
+		m.browser = m.browser.WithSize(bw, m.height)
+		m.details = m.details.WithSize(m.width-bw, m.height)
 		return m, nil
 
 	case msg.LoginSuccess:
 		m.client = api.New(message.ServerURL)
 		m.client.SetAuth(message.UserID, message.AccessToken)
-		m.browser = browser.New(m.client, m.width, m.height-m.detailsHeight()-1)
+		bw := m.browserWidth()
+		m.browser = browser.New(m.client, bw, m.height)
 		m.search = search.New(m.client)
 		m.details = m.details.WithClient(m.client)
 		m.screen = ScreenBrowser
@@ -204,26 +207,52 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	var sb strings.Builder
 	if m.screen == ScreenLogin {
+		var sb strings.Builder
 		if m.imageCapable {
 			sb.WriteString(image.Delete())
 		}
 		sb.WriteString(m.login.View())
-	} else {
-		if m.imageCapable && !m.details.HasImage() {
-			sb.WriteString(image.Delete())
+		if m.errorMsg != "" {
+			sb.WriteString("\n" + styles.Error.Render("Error: "+m.errorMsg+"  [esc to dismiss]"))
 		}
-		sb.WriteString(m.browser.View())
-		sb.WriteString("\n" + m.details.View())
+		return sb.String()
 	}
 
+	var sb strings.Builder
+
+	bw := m.browserWidth()
+	dw := m.width - bw
+
+	if m.imageCapable {
+		if m.details.HasImage() {
+			imgCols := dw - 4
+			if imgCols < 8 {
+				imgCols = 8
+			}
+			imgRows := m.details.ImageRows()
+			// Save cursor, jump to first content cell of details panel, place image, restore.
+			// \x1b[2;{bw+2}H = row 2 (below details top border), col bw+2 (inside left border).
+			sb.WriteString("\x1b7")
+			sb.WriteString(fmt.Sprintf("\x1b[2;%dH", bw+2))
+			sb.WriteString(image.Encode(m.details.ImageData(), imgCols, imgRows))
+			sb.WriteString("\x1b8")
+		} else {
+			sb.WriteString(image.Delete())
+		}
+	}
+
+	var leftView string
 	switch m.overlay {
 	case overlaySearch:
-		sb.WriteString("\n" + m.search.View())
+		leftView = lipgloss.NewStyle().Width(bw).Height(m.height).Render(m.search.View())
 	case overlayHelp:
-		sb.WriteString("\n" + help.View())
+		leftView = lipgloss.NewStyle().Width(bw).Height(m.height).Render(help.View())
+	default:
+		leftView = m.browser.View()
 	}
+
+	sb.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftView, m.details.View()))
 
 	if m.errorMsg != "" {
 		sb.WriteString("\n" + styles.Error.Render("Error: "+m.errorMsg+"  [esc to dismiss]"))

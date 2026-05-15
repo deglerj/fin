@@ -53,7 +53,7 @@ func (m Model) SelectedItem() api.Item {
 }
 
 func (m Model) visibleHeight() int {
-	return m.height - 3 // breadcrumb + status + hint rows
+	return m.height - 4 // breadcrumb + border + 2 status lines
 }
 
 func (m Model) WithSize(w, h int) Model { m.width = w; m.height = h; return m }
@@ -204,8 +204,9 @@ func (m Model) View() string {
 	}
 
 	count := fmt.Sprintf("%d items", len(top.items))
-	hint := "↑↓ navigate · enter open/play · / search · r random · q quit"
-	sb.WriteString(styles.StatusBar.Width(m.width).Render(count + "  " + hint))
+	line1 := count + "  ↑↓ navigate · enter open · esc/← back"
+	line2 := "/ search · r random · q quit"
+	sb.WriteString(styles.StatusBar.Width(m.width).Render(line1 + "\n" + line2))
 	return sb.String()
 }
 
