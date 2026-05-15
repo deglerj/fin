@@ -29,7 +29,10 @@ type PopLevel struct{}
 // Overlays
 type OpenDetails struct{ Item api.Item }
 type ItemDetailLoaded struct{ Item api.Item }
-type ImageLoaded struct{ Data []byte }
+type ImageLoaded struct {
+	Data   []byte
+	ItemId string
+}
 type OpenSearch struct{}
 type SearchResults struct{ Items []api.Item }
 type NavigateToItem struct{ Item api.Item }

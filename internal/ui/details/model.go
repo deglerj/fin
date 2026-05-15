@@ -22,7 +22,7 @@ type Model struct {
 }
 
 type apiClient interface {
-	GetImage(ctx context.Context, itemID string, maxWidth, maxHeight int) ([]byte, error)
+	GetImage(ctx context.Context, itemID string, maxWidth, maxHeight int, tag string) ([]byte, error)
 }
 
 func New(imageCapable bool) Model {
@@ -53,7 +53,10 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.item = message.Item
 		m.imageData = nil
 		var cmd tea.Cmd
-		if m.imageCapable && m.client != nil {
+		tag := message.Item.ImageTags["Primary"]
+		// ImageTags == nil means no tag data (e.g. library folders constructed without it) — attempt fetch anyway.
+		hasImage := message.Item.ImageTags == nil || tag != ""
+		if m.imageCapable && m.client != nil && hasImage {
 			itemID := message.Item.Id
 			c := m.client
 			imgCols := m.width - 4
@@ -65,16 +68,18 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			maxW := imgCols * 9
 			maxH := imgRows * 20
 			cmd = func() tea.Msg {
-				data, err := c.GetImage(context.Background(), itemID, maxW, maxH)
+				data, err := c.GetImage(context.Background(), itemID, maxW, maxH, tag)
 				if err != nil {
 					return nil
 				}
-				return msg.ImageLoaded{Data: data}
+				return msg.ImageLoaded{Data: data, ItemId: itemID}
 			}
 		}
 		return m, cmd
 	case msg.ImageLoaded:
-		m.imageData = message.Data
+		if message.ItemId == m.item.Id {
+			m.imageData = message.Data
+		}
 	}
 	return m, nil
 }

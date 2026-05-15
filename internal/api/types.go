@@ -14,20 +14,21 @@ type UserInfo struct {
 }
 
 type Item struct {
-	Id                string   `json:"Id"`
-	Name              string   `json:"Name"`
-	Type              string   `json:"Type"` // Movie, Series, Season, Episode, Audio
-	MediaType         string   `json:"MediaType"`
-	SeriesName        string   `json:"SeriesName"`
-	SeasonName        string   `json:"SeasonName"`
-	IndexNumber       int      `json:"IndexNumber"`
-	ParentIndexNumber int      `json:"ParentIndexNumber"`
-	RunTimeTicks      int64    `json:"RunTimeTicks"`
-	Overview          string   `json:"Overview"`
-	CommunityRating   float64  `json:"CommunityRating"`
-	ProductionYear    int      `json:"ProductionYear"`
-	People            []Person `json:"People"`
-	UserData          UserData `json:"UserData"`
+	Id                string            `json:"Id"`
+	Name              string            `json:"Name"`
+	Type              string            `json:"Type"` // Movie, Series, Season, Episode, Audio
+	MediaType         string            `json:"MediaType"`
+	SeriesName        string            `json:"SeriesName"`
+	SeasonName        string            `json:"SeasonName"`
+	IndexNumber       int               `json:"IndexNumber"`
+	ParentIndexNumber int               `json:"ParentIndexNumber"`
+	RunTimeTicks      int64             `json:"RunTimeTicks"`
+	Overview          string            `json:"Overview"`
+	CommunityRating   float64           `json:"CommunityRating"`
+	ProductionYear    int               `json:"ProductionYear"`
+	People            []Person          `json:"People"`
+	UserData          UserData          `json:"UserData"`
+	ImageTags         map[string]string `json:"ImageTags"`
 }
 
 func (item Item) MediaTitle() string {

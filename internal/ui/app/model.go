@@ -222,25 +222,6 @@ func (m Model) View() string {
 	var sb strings.Builder
 
 	bw := m.browserWidth()
-	dw := m.width - bw
-
-	if m.imageCapable {
-		if m.details.HasImage() {
-			imgCols := dw - 4
-			if imgCols < 8 {
-				imgCols = 8
-			}
-			imgRows := m.details.ImageRows()
-			// Save cursor, jump to first content cell of details panel, place image, restore.
-			// \x1b[2;{bw+2}H = row 2 (below details top border), col bw+2 (inside left border).
-			sb.WriteString("\x1b7")
-			sb.WriteString(fmt.Sprintf("\x1b[2;%dH", bw+2))
-			sb.WriteString(image.Encode(m.details.ImageData(), imgCols, imgRows))
-			sb.WriteString("\x1b8")
-		} else {
-			sb.WriteString(image.Delete())
-		}
-	}
 
 	var leftView string
 	switch m.overlay {
@@ -253,6 +234,19 @@ func (m Model) View() string {
 	}
 
 	sb.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftView, m.details.View()))
+
+	if m.imageCapable {
+		if m.details.HasImage() {
+			// Place image after text so it renders on top of the reserved blank rows.
+			// \x1b[2;{bw+2}H = row 2 (below details top border), col bw+2 (inside left border).
+			sb.WriteString("\x1b7")
+			sb.WriteString(fmt.Sprintf("\x1b[2;%dH", bw+2))
+			sb.WriteString(image.Encode(m.details.ImageData()))
+			sb.WriteString("\x1b8")
+		} else {
+			sb.WriteString(image.Delete())
+		}
+	}
 
 	if m.errorMsg != "" {
 		sb.WriteString("\n" + styles.Error.Render("Error: "+m.errorMsg+"  [esc to dismiss]"))

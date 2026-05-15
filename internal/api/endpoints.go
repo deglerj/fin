@@ -62,8 +62,12 @@ func (c *Client) Search(ctx context.Context, term string) ([]Item, error) {
 	return resp.Items, err
 }
 
-func (c *Client) GetImage(ctx context.Context, itemID string, maxWidth, maxHeight int) ([]byte, error) {
-	return c.getRaw(ctx, fmt.Sprintf("/Items/%s/Images/Primary?MaxWidth=%d&MaxHeight=%d", itemID, maxWidth, maxHeight))
+func (c *Client) GetImage(ctx context.Context, itemID string, maxWidth, maxHeight int, tag string) ([]byte, error) {
+	path := fmt.Sprintf("/Items/%s/Images/Primary?MaxWidth=%d&MaxHeight=%d", itemID, maxWidth, maxHeight)
+	if tag != "" {
+		path += "&tag=" + tag
+	}
+	return c.getRaw(ctx, path)
 }
 
 func (c *Client) StreamURL(item Item) string {

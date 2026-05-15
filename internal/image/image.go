@@ -1,75 +1,45 @@
 package image
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
-	"os"
+	imglib "image"
+	"image/draw"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"strings"
-	"time"
+
+	termimg "github.com/blacktop/go-termimg"
 )
 
-var capable *bool
-
-// Probe sends a kitty graphics query and waits for a response.
-// Returns true if the terminal supports kitty graphics protocol.
-// Result cached after first call.
+// Probe detects whether the terminal supports kitty graphics protocol.
+// Result is cached after first call by go-termimg.
 func Probe() bool {
-	if capable != nil {
-		return *capable
-	}
-	if os.Getenv("KITTY_WINDOW_ID") != "" {
-		t := true
-		capable = &t
-		return true
-	}
-	result := probeTerminal(100 * time.Millisecond)
-	capable = &result
-	return result
-}
-
-func probeTerminal(timeout time.Duration) bool {
-	oldState, err := makeRaw()
-	if err != nil {
-		return false
-	}
-	defer restore(oldState)
-
-	_, _ = fmt.Fprint(os.Stdout, "\x1b_Ga=q,s=1,v=1,i=1;\x1b\\")
-
-	ch := make(chan bool, 1)
-	go func() {
-		buf := make([]byte, 64)
-		n, _ := os.Stdin.Read(buf)
-		ch <- n > 0 && containsKittyResponse(buf[:n])
-	}()
-
-	select {
-	case result := <-ch:
-		return result
-	case <-time.After(timeout):
-		return false
-	}
-}
-
-func containsKittyResponse(b []byte) bool {
-	for i := 0; i < len(b)-2; i++ {
-		if b[i] == 0x1b && b[i+1] == '_' && b[i+2] == 'G' {
-			return true
-		}
-	}
-	return false
+	return termimg.KittySupported()
 }
 
 // Delete returns the kitty graphics protocol escape to delete all visible image placements.
 func Delete() string {
-	return "\x1b_Ga=d\x1b\\"
+	return termimg.ClearAllString()
 }
 
 // Encode encodes image bytes as a kitty graphics protocol string.
-// cols and rows are the desired terminal cell dimensions.
-func Encode(data []byte, cols, rows int) string {
+// Omits c/r cell hints so the terminal uses its actual font size, ensuring correct aspect ratio.
+func Encode(data []byte) string {
+	src, _, err := imglib.Decode(bytes.NewReader(data))
+	if err != nil {
+		return ""
+	}
+	bounds := src.Bounds()
+	rgba := imglib.NewRGBA(bounds)
+	draw.Draw(rgba, bounds, src, bounds.Min, draw.Src)
+
+	pixelW, pixelH := bounds.Dx(), bounds.Dy()
+	encoded := base64.StdEncoding.EncodeToString(rgba.Pix)
+
 	const chunkSize = 4096
-	encoded := base64.StdEncoding.EncodeToString(data)
 	var out strings.Builder
 	for i := 0; i < len(encoded); i += chunkSize {
 		end := i + chunkSize
@@ -82,9 +52,9 @@ func Encode(data []byte, cols, rows int) string {
 			m = 0
 		}
 		if i == 0 {
-			fmt.Fprintf(&out, "\x1b_Ga=T,f=100,c=%d,r=%d,C=1,m=%d;%s\x1b\\", cols, rows, m, chunk)
+			fmt.Fprintf(&out, "\x1b_Ga=T,f=32,s=%d,v=%d,q=2,m=%d;%s\x1b\\", pixelW, pixelH, m, chunk)
 		} else {
-			fmt.Fprintf(&out, "\x1b_Gm=%d;%s\x1b\\", m, chunk)
+			fmt.Fprintf(&out, "\x1b_Gm=%d,q=2;%s\x1b\\", m, chunk)
 		}
 	}
 	return out.String()
