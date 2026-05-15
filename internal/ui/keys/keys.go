@@ -23,7 +23,7 @@ var Default = Bindings{
 	Right:   key.NewBinding(key.WithKeys("right", "enter")),
 	Left:    key.NewBinding(key.WithKeys("left", "esc")),
 	Play:    key.NewBinding(key.WithKeys("enter")),
-	Back:    key.NewBinding(key.WithKeys("esc", "left")),
+	Back:    key.NewBinding(key.WithKeys("esc", "left", "backspace")),
 	Details: key.NewBinding(key.WithKeys("i")),
 	Search:  key.NewBinding(key.WithKeys("/")),
 	Random:  key.NewBinding(key.WithKeys("r")),

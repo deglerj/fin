@@ -17,10 +17,30 @@ import (
 )
 
 type level struct {
-	name   string
-	items  []api.Item
-	cursor int
-	offset int
+	name    string
+	items   []api.Item
+	cursor  int
+	offset  int
+	hasBack bool
+}
+
+func (l level) displayLen() int {
+	if l.hasBack {
+		return len(l.items) + 1
+	}
+	return len(l.items)
+}
+
+// itemAt maps a display index to a real item. Returns (item, true) for real
+// items and (zero, false) for the virtual "..." back entry.
+func (l level) itemAt(displayIdx int) (api.Item, bool) {
+	if l.hasBack {
+		if displayIdx == 0 {
+			return api.Item{}, false
+		}
+		return l.items[displayIdx-1], true
+	}
+	return l.items[displayIdx], true
 }
 
 type Model struct {
@@ -46,10 +66,11 @@ func (m Model) SelectedItem() api.Item {
 		return api.Item{}
 	}
 	top := m.stack[len(m.stack)-1]
-	if top.cursor >= len(top.items) {
+	item, ok := top.itemAt(top.cursor)
+	if !ok {
 		return api.Item{}
 	}
-	return top.items[top.cursor]
+	return item
 }
 
 func (m Model) visibleHeight() int {
@@ -66,7 +87,12 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case msg.PushLevel:
 		m.loading = false
 		m.cancelFetch = nil
-		m.stack = append(m.stack, level{name: message.LevelName, items: message.Items})
+		hasBack := len(m.stack) > 0
+		cursor := 0
+		if hasBack {
+			cursor = 1
+		}
+		m.stack = append(m.stack, level{name: message.LevelName, items: message.Items, hasBack: hasBack, cursor: cursor})
 		return m, nil
 
 	case msg.PopLevel:
@@ -102,7 +128,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.stack[len(m.stack)-1] = top
 		case key.Matches(message, keys.Default.Down):
-			if top.cursor < len(top.items)-1 {
+			if top.cursor < top.displayLen()-1 {
 				top.cursor++
 				if top.cursor >= top.offset+m.visibleHeight() {
 					top.offset++
@@ -110,7 +136,13 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.stack[len(m.stack)-1] = top
 		case message.String() == "enter" || message.String() == "right":
-			item := m.SelectedItem()
+			item, isReal := top.itemAt(top.cursor)
+			if !isReal {
+				if len(m.stack) > 1 {
+					m.stack = m.stack[:len(m.stack)-1]
+				}
+				return m, nil
+			}
 			if isLeaf(item) {
 				return m, func() tea.Msg { return msg.PlayItem{Item: item} }
 			}
@@ -121,7 +153,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			m.cancelFetch = cancel
 			m.loading = true
 			return m, m.fetchChildren(ctx, item)
-		case message.String() == "esc" || message.String() == "left":
+		case message.String() == "esc" || message.String() == "left" || message.String() == "backspace":
 			if len(m.stack) > 1 {
 				m.stack = m.stack[:len(m.stack)-1]
 			}
@@ -190,12 +222,17 @@ func (m Model) View() string {
 
 	visible := m.visibleHeight()
 	end := top.offset + visible
-	if end > len(top.items) {
-		end = len(top.items)
+	if end > top.displayLen() {
+		end = top.displayLen()
 	}
 	for i := top.offset; i < end; i++ {
-		item := top.items[i]
-		line := formatItem(item)
+		var line string
+		item, isReal := top.itemAt(i)
+		if !isReal {
+			line = "..."
+		} else {
+			line = formatItem(item)
+		}
 		if i == top.cursor {
 			sb.WriteString(styles.Selected.Width(m.width).Render(line))
 		} else {
@@ -205,7 +242,7 @@ func (m Model) View() string {
 	}
 
 	count := fmt.Sprintf("%d items", len(top.items))
-	line1 := count + "  ↑↓ navigate · enter open · esc/← back"
+	line1 := count + "  ↑↓ navigate · enter open · ⌫/esc/← back"
 	line2 := "/ search · r random · q quit"
 	sb.WriteString(styles.StatusBar.Width(m.width).Render(line1 + "\n" + line2))
 	return sb.String()

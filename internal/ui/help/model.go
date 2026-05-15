@@ -8,7 +8,7 @@ import (
 const helpText = `
   ↑ / ↓       Navigate list
   → / Enter   Open / drill in / play
-  ← / Esc     Back / close overlay
+  ⌫ / ← / Esc  Back / close overlay
   i           Details overlay
   /           Search
   r           Random from current list
