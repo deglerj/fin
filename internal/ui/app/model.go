@@ -244,7 +244,7 @@ func (m Model) View() string {
 			// Place image after text so it renders on top of the reserved blank rows.
 			// \x1b[2;{bw+2}H = row 2 (below details top border), col bw+2 (inside left border).
 			sb.WriteString("\x1b7")
-			sb.WriteString(fmt.Sprintf("\x1b[2;%dH", bw+2))
+			fmt.Fprintf(&sb, "\x1b[2;%dH", bw+2)
 			sb.WriteString(image.Encode(m.details.ImageData()))
 			sb.WriteString("\x1b8")
 		} else {
