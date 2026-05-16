@@ -128,7 +128,11 @@ func (m Model) View() string {
 	sb.WriteString(styles.Label.Render("Search: "))
 	sb.WriteString(m.input.View())
 	sb.WriteByte('\n')
-	sb.WriteString(strings.Repeat("─", 40))
+	sepWidth := m.width
+	if sepWidth <= 0 {
+		sepWidth = 40
+	}
+	sb.WriteString(strings.Repeat("─", sepWidth))
 	sb.WriteByte('\n')
 	for i, item := range m.results {
 		line := item.Name
