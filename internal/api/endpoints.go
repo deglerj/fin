@@ -2,16 +2,25 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
 )
 
 func (c *Client) Authenticate(ctx context.Context, username, password string) (AuthResponse, error) {
-	body := fmt.Sprintf(`{"Username":%q,"Pw":%q}`, username, password)
+	payload := struct {
+		Username string `json:"Username"`
+		Pw       string `json:"Pw"`
+	}{username, password}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return AuthResponse{}, err
+	}
 	var resp AuthResponse
-	err := c.post(ctx, "/Users/AuthenticateByName", strings.NewReader(body), &resp)
+	err = c.post(ctx, "/Users/AuthenticateByName", bytes.NewReader(b), &resp)
 	return resp, err
 }
 
