@@ -61,7 +61,7 @@ func New(cfg *config.Config, client *api.Client, imageCapable bool) Model {
 		client:       client,
 		imageCapable: imageCapable,
 		screen:       ScreenLogin,
-		login:        login.New(client),
+		login:        login.New(),
 		browser:      browser.New(client, 80, 24),
 		details:      details.New(imageCapable),
 		search:       search.New(client),

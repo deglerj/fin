@@ -24,7 +24,6 @@ const (
 )
 
 type Model struct {
-	client   *api.Client
 	inputs   []textinput.Model
 	focused  field
 	loading  bool
@@ -32,7 +31,7 @@ type Model struct {
 	errorMsg string
 }
 
-func New(client *api.Client) Model {
+func New() Model {
 	inputs := make([]textinput.Model, int(fieldCount))
 	for i := range inputs {
 		inputs[i] = textinput.New()
@@ -47,7 +46,7 @@ func New(client *api.Client) Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 
-	return Model{client: client, inputs: inputs, spinner: sp}
+	return Model{inputs: inputs, spinner: sp}
 }
 
 func (m Model) Init() tea.Cmd {
