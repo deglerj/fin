@@ -247,6 +247,10 @@ func (m Model) View() string {
 	}
 
 	if m.imageCapable {
+		// Always delete before placing: bubbletea batches frames at 60fps, so the
+		// intermediate "no image" frame (with only Delete) may be skipped when
+		// ImageLoaded arrives within the same tick as OpenDetails.
+		sb.WriteString(image.Delete())
 		if !m.browser.IsLoading() && m.details.HasImage() {
 			// Place image after text so it renders on top of the reserved blank rows.
 			// \x1b[2;{bw+2}H = row 2 (below details top border), col bw+2 (inside left border).
@@ -254,8 +258,6 @@ func (m Model) View() string {
 			fmt.Fprintf(&sb, "\x1b[2;%dH", bw+2)
 			sb.WriteString(image.Encode(m.details.ImageData()))
 			sb.WriteString("\x1b8")
-		} else {
-			sb.WriteString(image.Delete())
 		}
 	}
 
