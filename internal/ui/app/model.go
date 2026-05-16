@@ -289,11 +289,23 @@ func saveCredentials(ls msg.LoginSuccess, cfg *config.Config) {
 }
 
 func asBrowserModel(m tea.Model, cmd tea.Cmd) (browser.Model, tea.Cmd) {
-	return m.(browser.Model), cmd
+	bm, ok := m.(browser.Model)
+	if !ok {
+		panic(fmt.Sprintf("expected browser.Model, got %T", m))
+	}
+	return bm, cmd
 }
 func asDetailsModel(m tea.Model, cmd tea.Cmd) (details.Model, tea.Cmd) {
-	return m.(details.Model), cmd
+	dm, ok := m.(details.Model)
+	if !ok {
+		panic(fmt.Sprintf("expected details.Model, got %T", m))
+	}
+	return dm, cmd
 }
 func asSearchModel(m tea.Model, cmd tea.Cmd) (search.Model, tea.Cmd) {
-	return m.(search.Model), cmd
+	sm, ok := m.(search.Model)
+	if !ok {
+		panic(fmt.Sprintf("expected search.Model, got %T", m))
+	}
+	return sm, cmd
 }
