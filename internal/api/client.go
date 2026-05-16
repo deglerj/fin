@@ -58,7 +58,9 @@ func (c *Client) getRaw(ctx context.Context, path string) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("X-Emby-Authorization", clientHeader)
-	req.Header.Set("X-Emby-Token", c.token)
+	if c.token != "" {
+		req.Header.Set("X-Emby-Token", c.token)
+	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
