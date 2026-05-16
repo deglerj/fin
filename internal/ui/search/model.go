@@ -3,6 +3,7 @@ package search
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -73,6 +74,9 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, func() tea.Msg {
 			items, err := c.Search(ctx, term)
 			if err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					return nil
+				}
 				return msg.AppError{Err: err}
 			}
 			return msg.SearchResults{Items: items}
