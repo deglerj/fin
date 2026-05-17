@@ -119,6 +119,7 @@ func TestGetNextUp(t *testing.T) {
 		assert.Equal(t, "/Shows/NextUp", r.URL.Path)
 		assert.Equal(t, "uid1", r.URL.Query().Get("UserId"))
 		assert.Equal(t, "20", r.URL.Query().Get("Limit"))
+		assert.Equal(t, "Overview,People,CommunityRating,ProductionYear", r.URL.Query().Get("Fields"))
 		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
 			Items: []api.Item{{Id: "ep1", Name: "Episode 1", Type: "Episode"}},
 		}))
@@ -135,6 +136,7 @@ func TestGetResumeItems(t *testing.T) {
 		assert.Equal(t, "/UserItems/Resume", r.URL.Path)
 		assert.Equal(t, "uid1", r.URL.Query().Get("UserId"))
 		assert.Equal(t, "20", r.URL.Query().Get("Limit"))
+		assert.Equal(t, "Overview,People,CommunityRating,ProductionYear", r.URL.Query().Get("Fields"))
 		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
 			Items: []api.Item{{Id: "m1", Name: "Inception", Type: "Movie"}},
 		}))
@@ -150,6 +152,7 @@ func TestGetLatestMedia(t *testing.T) {
 	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/Users/uid1/Items/Latest", r.URL.Path)
 		assert.Equal(t, "20", r.URL.Query().Get("Limit"))
+		assert.Equal(t, "Overview,People,CommunityRating,ProductionYear", r.URL.Query().Get("Fields"))
 		assert.NoError(t, json.NewEncoder(w).Encode([]api.Item{
 			{Id: "m2", Name: "Dune", Type: "Movie"},
 		}))
