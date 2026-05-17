@@ -45,7 +45,8 @@ type Person struct {
 }
 
 type UserData struct {
-	Played bool `json:"Played"`
+	Played                bool  `json:"Played"`
+	PlaybackPositionTicks int64 `json:"PlaybackPositionTicks"`
 }
 
 type ItemsResponse struct {
