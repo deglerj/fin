@@ -14,6 +14,7 @@ go build -o fin ./cmd/fin/  # build runnable binary
 go test ./...               # run all tests
 go test ./internal/api/...  # run a single package's tests
 go test ./... -run TestName # run a single test
+golangci-lint run           # lint (must pass before commit — CI enforces this)
 ```
 
 ## Architecture

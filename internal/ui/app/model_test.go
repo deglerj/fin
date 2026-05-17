@@ -82,9 +82,9 @@ func newAppWithMockServer(t *testing.T, handler http.Handler) app.Model {
 func TestFetchVirtualSectionNextUp(t *testing.T) {
 	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/Shows/NextUp" {
-			json.NewEncoder(w).Encode(api.ItemsResponse{
+			require.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
 				Items: []api.Item{{Id: "ep1", Name: "Episode 1", Type: "Episode"}},
-			})
+			}))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -101,9 +101,9 @@ func TestFetchVirtualSectionNextUp(t *testing.T) {
 func TestFetchVirtualSectionResume(t *testing.T) {
 	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/UserItems/Resume" {
-			json.NewEncoder(w).Encode(api.ItemsResponse{
+			require.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
 				Items: []api.Item{{Id: "m1", Name: "Inception", Type: "Movie"}},
-			})
+			}))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -120,7 +120,7 @@ func TestFetchVirtualSectionResume(t *testing.T) {
 func TestFetchVirtualSectionLatest(t *testing.T) {
 	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/Items/Latest") {
-			json.NewEncoder(w).Encode([]api.Item{{Id: "m2", Name: "Dune", Type: "Movie"}})
+			require.NoError(t, json.NewEncoder(w).Encode([]api.Item{{Id: "m2", Name: "Dune", Type: "Movie"}}))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -137,9 +137,9 @@ func TestFetchVirtualSectionLatest(t *testing.T) {
 func TestFetchVirtualSectionFavorites(t *testing.T) {
 	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/Items" && r.URL.Query().Get("isFavorite") == "true" {
-			json.NewEncoder(w).Encode(api.ItemsResponse{
+			require.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
 				Items: []api.Item{{Id: "m3", Name: "The Matrix", Type: "Movie"}},
-			})
+			}))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
