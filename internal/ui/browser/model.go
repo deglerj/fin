@@ -338,7 +338,7 @@ func (m Model) View() string {
 		revalidating = " [~]"
 	}
 	line1 := count + revalidating + "  ↑↓ navigate · enter open · ⌫/esc/← back"
-	line2 := "/ search · r random · q quit"
+	line2 := "/ search · r random · m mark · q quit"
 	sb.WriteString(styles.StatusBar.Width(m.width).Render(line1 + "\n" + line2))
 	return sb.String()
 }
