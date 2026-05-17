@@ -133,6 +133,67 @@ func TestSWRRevalidatingIndicatorClearedAfterRefresh(t *testing.T) {
 	require.NotContains(t, m3.(browser.Model).View(), "[~]", "revalidating indicator should clear after refresh")
 }
 
+func makeLeafItems() []api.Item {
+	return []api.Item{
+		{Id: "m1", Name: "Dune", Type: "Movie", UserData: api.UserData{Played: false}},
+		{Id: "m2", Name: "Arrival", Type: "Movie", UserData: api.UserData{Played: true}},
+	}
+}
+
+func TestMarkPlayedEmitsCmd(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeLeafItems(), LevelName: "Movies"})
+	_, cmd := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("m")})
+	require.NotNil(t, cmd, "expected a cmd from m key on leaf item")
+}
+
+func TestMarkPlayedNilClientReturnsAppError(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeLeafItems(), LevelName: "Movies"})
+	_, cmd := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("m")})
+	require.NotNil(t, cmd)
+	result := cmd()
+	_, isErr := result.(msg.AppError)
+	require.True(t, isErr, "nil client should produce AppError, got %T", result)
+}
+
+func TestMarkPlayedNonLeafIsNoop(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	series := []api.Item{{Id: "s1", Name: "Breaking Bad", Type: "Series"}}
+	m2, _ := m.Update(msg.PushLevel{Items: series, LevelName: "Shows"})
+	_, cmd := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("m")})
+	require.Nil(t, cmd, "m on non-leaf should produce no cmd")
+}
+
+func TestPlayedToggledUpdatesStack(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeLeafItems(), LevelName: "Movies"})
+	// Mark m1 as played
+	m3, _ := m2.(browser.Model).Update(msg.PlayedToggled{ItemID: "m1", Played: true})
+	require.Contains(t, m3.(browser.Model).View(), "✓")
+}
+
+func TestPlayedToggledUnmarkRemovesIndicator(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeLeafItems(), LevelName: "Movies"})
+	// Navigate down to select Arrival (index 1)
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyDown})
+	// Confirm ✓ is shown initially (Arrival starts as Played: true)
+	require.Contains(t, m3.(browser.Model).View(), "✓")
+	// Unmark
+	m4, _ := m3.(browser.Model).Update(msg.PlayedToggled{ItemID: "m2", Played: false})
+	require.NotContains(t, m4.(browser.Model).View(), "✓")
+}
+
+func TestPlayedToggledOnUnknownItemIsNoop(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeLeafItems(), LevelName: "Movies"})
+	// Toggling an ID that doesn't exist in the stack must not panic
+	m3, cmd := m2.(browser.Model).Update(msg.PlayedToggled{ItemID: "nonexistent", Played: true})
+	require.Nil(t, cmd)
+	_ = m3.(browser.Model).View() // must not panic
+}
+
 func TestVirtualSectionEnterEmitsFetchMsg(t *testing.T) {
 	m := browser.New(nil, 80, 24)
 	items := []api.Item{{Id: "__next_up__", Name: "Next Up", Type: "VirtualSection"}}

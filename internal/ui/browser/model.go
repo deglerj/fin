@@ -205,7 +205,53 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			item := items[rand.Intn(len(items))]
 			return m, func() tea.Msg { return msg.PlayItem{Item: item} }
+		case key.Matches(message, keys.Default.MarkPlayed):
+			item, isReal := top.itemAt(top.cursor)
+			if !isReal || !isLeaf(item) {
+				return m, nil
+			}
+			client := m.client
+			if client == nil {
+				return m, func() tea.Msg { return msg.AppError{Err: fmt.Errorf("no client configured")} }
+			}
+			targetPlayed := !item.UserData.Played
+			itemID := item.Id
+			return m, func() tea.Msg {
+				var err error
+				if targetPlayed {
+					err = client.MarkPlayed(context.Background(), itemID)
+				} else {
+					err = client.MarkUnplayed(context.Background(), itemID)
+				}
+				if err != nil {
+					return msg.AppError{Err: err}
+				}
+				return msg.PlayedToggled{ItemID: itemID, Played: targetPlayed}
+			}
 		}
+
+	case msg.PlayedToggled:
+		if len(m.stack) == 0 {
+			return m, nil
+		}
+		top := m.stack[len(m.stack)-1]
+		for i, item := range top.items {
+			if item.Id == message.ItemID {
+				m.stack[len(m.stack)-1].items[i].UserData.Played = message.Played
+				break
+			}
+		}
+		if top.parentID != "" {
+			if cached, ok := m.cache[top.parentID]; ok {
+				for i, item := range cached {
+					if item.Id == message.ItemID {
+						m.cache[top.parentID][i].UserData.Played = message.Played
+						break
+					}
+				}
+			}
+		}
+		return m, nil
 	}
 	return m, nil
 }
@@ -307,6 +353,9 @@ func truncate(s string, maxWidth int) string {
 
 func formatItem(item api.Item) string {
 	name := item.Name
+	if item.UserData.Played {
+		name = "✓ " + name
+	}
 	if item.Type == "Episode" && item.IndexNumber > 0 {
 		name = fmt.Sprintf("S%02dE%02d – %s", item.ParentIndexNumber, item.IndexNumber, item.Name)
 	}
