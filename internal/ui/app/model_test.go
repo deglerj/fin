@@ -2,7 +2,10 @@
 package app_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -65,4 +68,87 @@ func TestLibrariesLoadedPrependsVirtualSections(t *testing.T) {
 	require.Contains(t, view, "Recently Added")
 	require.Contains(t, view, "Favorites")
 	require.Contains(t, view, "Movies")
+}
+
+func newAppWithMockServer(t *testing.T, handler http.Handler) app.Model {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	client := api.New(srv.URL)
+	client.SetAuth("u1", "tok")
+	return app.New(nil, client, false)
+}
+
+func TestFetchVirtualSectionNextUp(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/Shows/NextUp" {
+			json.NewEncoder(w).Encode(api.ItemsResponse{
+				Items: []api.Item{{Id: "ep1", Name: "Episode 1", Type: "Episode"}},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	_, cmd := m.Update(msg.FetchVirtualSection{ID: "__next_up__"})
+	require.NotNil(t, cmd)
+	result := cmd()
+	push, ok := result.(msg.PushLevel)
+	require.True(t, ok, "expected PushLevel, got %T", result)
+	require.Equal(t, "Next Up", push.LevelName)
+	require.Len(t, push.Items, 1)
+}
+
+func TestFetchVirtualSectionResume(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/UserItems/Resume" {
+			json.NewEncoder(w).Encode(api.ItemsResponse{
+				Items: []api.Item{{Id: "m1", Name: "Inception", Type: "Movie"}},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	_, cmd := m.Update(msg.FetchVirtualSection{ID: "__resume__"})
+	require.NotNil(t, cmd)
+	result := cmd()
+	push, ok := result.(msg.PushLevel)
+	require.True(t, ok, "expected PushLevel, got %T", result)
+	require.Equal(t, "Continue Watching", push.LevelName)
+	require.Len(t, push.Items, 1)
+}
+
+func TestFetchVirtualSectionLatest(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/Items/Latest") {
+			json.NewEncoder(w).Encode([]api.Item{{Id: "m2", Name: "Dune", Type: "Movie"}})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	_, cmd := m.Update(msg.FetchVirtualSection{ID: "__latest__"})
+	require.NotNil(t, cmd)
+	result := cmd()
+	push, ok := result.(msg.PushLevel)
+	require.True(t, ok, "expected PushLevel, got %T", result)
+	require.Equal(t, "Recently Added", push.LevelName)
+	require.Len(t, push.Items, 1)
+}
+
+func TestFetchVirtualSectionFavorites(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/Items" && r.URL.Query().Get("isFavorite") == "true" {
+			json.NewEncoder(w).Encode(api.ItemsResponse{
+				Items: []api.Item{{Id: "m3", Name: "The Matrix", Type: "Movie"}},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	_, cmd := m.Update(msg.FetchVirtualSection{ID: "__favorites__"})
+	require.NotNil(t, cmd)
+	result := cmd()
+	push, ok := result.(msg.PushLevel)
+	require.True(t, ok, "expected PushLevel, got %T", result)
+	require.Equal(t, "Favorites", push.LevelName)
+	require.Len(t, push.Items, 1)
 }

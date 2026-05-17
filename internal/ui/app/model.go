@@ -182,6 +182,46 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.errorMsg = ""
 		return m, nil
 
+	case msg.FetchVirtualSection:
+		c := m.client
+		if c == nil {
+			return m, func() tea.Msg { return msg.AppError{Err: fmt.Errorf("no client configured")} }
+		}
+		switch message.ID {
+		case "__next_up__":
+			return m, func() tea.Msg {
+				items, err := c.GetNextUp(context.Background())
+				if err != nil {
+					return msg.AppError{Err: err}
+				}
+				return msg.PushLevel{Items: items, LevelName: "Next Up"}
+			}
+		case "__resume__":
+			return m, func() tea.Msg {
+				items, err := c.GetResumeItems(context.Background())
+				if err != nil {
+					return msg.AppError{Err: err}
+				}
+				return msg.PushLevel{Items: items, LevelName: "Continue Watching"}
+			}
+		case "__latest__":
+			return m, func() tea.Msg {
+				items, err := c.GetLatestMedia(context.Background())
+				if err != nil {
+					return msg.AppError{Err: err}
+				}
+				return msg.PushLevel{Items: items, LevelName: "Recently Added"}
+			}
+		case "__favorites__":
+			return m, func() tea.Msg {
+				items, err := c.GetFavorites(context.Background())
+				if err != nil {
+					return msg.AppError{Err: err}
+				}
+				return msg.PushLevel{Items: items, LevelName: "Favorites"}
+			}
+		}
+
 	case tea.KeyMsg:
 		if message.String() == "q" || message.String() == "ctrl+c" {
 			return m, tea.Quit
