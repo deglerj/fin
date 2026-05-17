@@ -165,6 +165,10 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			if isLeaf(item) {
 				return m, func() tea.Msg { return msg.PlayItem{Item: item} }
 			}
+			if item.Type == "VirtualSection" {
+				m.loading = true
+				return m, func() tea.Msg { return msg.FetchVirtualSection{ID: item.Id} }
+			}
 			if m.cancelFetch != nil {
 				m.cancelFetch()
 			}

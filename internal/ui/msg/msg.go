@@ -26,6 +26,7 @@ type PushLevel struct {
 	ParentID  string
 }
 type PopLevel struct{}
+type FetchVirtualSection struct{ ID string }
 type RefreshLevel struct {
 	Items    []api.Item
 	ParentID string

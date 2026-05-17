@@ -132,3 +132,16 @@ func TestSWRRevalidatingIndicatorClearedAfterRefresh(t *testing.T) {
 	m3, _ := m2.(browser.Model).Update(msg.RefreshLevel{ParentID: "s1", Items: makeItems("Season 1 Updated")})
 	require.NotContains(t, m3.(browser.Model).View(), "[~]", "revalidating indicator should clear after refresh")
 }
+
+func TestVirtualSectionEnterEmitsFetchMsg(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	items := []api.Item{{Id: "__next_up__", Name: "Next Up", Type: "VirtualSection"}}
+	m2, _ := m.Update(msg.PushLevel{Items: items, LevelName: "Libraries"})
+	m3, cmd := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyEnter})
+	require.NotNil(t, cmd, "expected a cmd from entering VirtualSection")
+	result := cmd()
+	fetch, ok := result.(msg.FetchVirtualSection)
+	require.True(t, ok, "expected FetchVirtualSection, got %T", result)
+	require.Equal(t, "__next_up__", fetch.ID)
+	require.True(t, m3.(browser.Model).IsLoading(), "browser should be loading after entering VirtualSection")
+}
