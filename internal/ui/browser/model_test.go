@@ -206,3 +206,21 @@ func TestVirtualSectionEnterEmitsFetchMsg(t *testing.T) {
 	require.Equal(t, "__next_up__", fetch.ID)
 	require.True(t, m3.(browser.Model).IsLoading(), "browser should be loading after entering VirtualSection")
 }
+
+func TestPlayedItemShowsCheckmark(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	items := []api.Item{
+		{Id: "m1", Name: "Dune", Type: "Movie", UserData: api.UserData{Played: true}},
+	}
+	m2, _ := m.Update(msg.PushLevel{Items: items, LevelName: "Movies"})
+	require.Contains(t, m2.(browser.Model).View(), "✓")
+}
+
+func TestUnplayedItemNoCheckmark(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	items := []api.Item{
+		{Id: "m1", Name: "Dune", Type: "Movie", UserData: api.UserData{Played: false}},
+	}
+	m2, _ := m.Update(msg.PushLevel{Items: items, LevelName: "Movies"})
+	require.NotContains(t, m2.(browser.Model).View(), "✓")
+}
