@@ -310,6 +310,9 @@ func formatItem(item api.Item) string {
 	if item.Type == "Episode" && item.IndexNumber > 0 {
 		name = fmt.Sprintf("S%02dE%02d – %s", item.ParentIndexNumber, item.IndexNumber, item.Name)
 	}
+	if item.Type == "Episode" && item.SeriesName != "" {
+		name = item.SeriesName + ": " + name
+	}
 	if item.RunTimeTicks > 0 {
 		mins := item.RunTimeTicks / 600_000_000
 		return fmt.Sprintf("%-50s %dm", name, mins)
