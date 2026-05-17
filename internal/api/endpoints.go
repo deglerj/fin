@@ -113,3 +113,11 @@ func (c *Client) StreamURL(item Item) string {
 	}
 	return fmt.Sprintf("%s/Videos/%s/stream?api_key=%s&static=true", c.baseURL, item.Id, c.token)
 }
+
+func (c *Client) MarkPlayed(ctx context.Context, itemID string) error {
+	return c.doNoResponse(ctx, "POST", fmt.Sprintf("/Users/%s/PlayedItems/%s", c.userID, itemID))
+}
+
+func (c *Client) MarkUnplayed(ctx context.Context, itemID string) error {
+	return c.doNoResponse(ctx, "DELETE", fmt.Sprintf("/Users/%s/PlayedItems/%s", c.userID, itemID))
+}

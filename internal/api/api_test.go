@@ -181,3 +181,43 @@ func TestGetFavorites(t *testing.T) {
 	require.Len(t, items, 1)
 	require.Equal(t, "The Matrix", items[0].Name)
 }
+
+func TestMarkPlayed(t *testing.T) {
+	var gotMethod, gotPath string
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	client.SetAuth("uid1", "tok123")
+	err := client.MarkPlayed(context.Background(), "item42")
+	require.NoError(t, err)
+	require.Equal(t, "POST", gotMethod)
+	require.Equal(t, "/Users/uid1/PlayedItems/item42", gotPath)
+}
+
+func TestMarkUnplayed(t *testing.T) {
+	var gotMethod, gotPath string
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	client.SetAuth("uid1", "tok123")
+	err := client.MarkUnplayed(context.Background(), "item42")
+	require.NoError(t, err)
+	require.Equal(t, "DELETE", gotMethod)
+	require.Equal(t, "/Users/uid1/PlayedItems/item42", gotPath)
+}
+
+func TestMarkPlayedHTTPError(t *testing.T) {
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	client.SetAuth("uid1", "tok123")
+	err := client.MarkPlayed(context.Background(), "item42")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "500")
+}

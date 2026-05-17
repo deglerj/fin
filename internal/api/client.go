@@ -89,3 +89,23 @@ func (c *Client) post(ctx context.Context, path string, body io.Reader, out any)
 	}
 	return json.NewDecoder(resp.Body).Decode(out)
 }
+
+func (c *Client) doNoResponse(ctx context.Context, method, path string) error {
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Emby-Authorization", clientHeader)
+	if c.token != "" {
+		req.Header.Set("X-Emby-Token", c.token)
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("jellyfin: HTTP %d for %s", resp.StatusCode, path)
+	}
+	return nil
+}
