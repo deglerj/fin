@@ -158,7 +158,8 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		url := m.client.StreamURL(message.Item)
-		return m, player.Play(m.cfg.Player.Command, m.cfg.Player.ExtraArgs, url, message.Item.MediaTitle())
+		startSec := message.Item.UserData.PlaybackPositionTicks / 10_000_000
+		return m, player.Play(m.cfg.Player.Command, m.cfg.Player.ExtraArgs, url, message.Item.MediaTitle(), startSec)
 
 	case msg.PlayerDone:
 		if message.Err != nil {
