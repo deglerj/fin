@@ -113,3 +113,68 @@ func TestStreamURL(t *testing.T) {
 	item := api.Item{Id: "m1", Type: "Movie"}
 	require.Equal(t, "https://jf.example.com/Videos/m1/stream?api_key=tok&static=true", client.StreamURL(item))
 }
+
+func TestGetNextUp(t *testing.T) {
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/Shows/NextUp", r.URL.Path)
+		assert.Equal(t, "uid1", r.URL.Query().Get("UserId"))
+		assert.Equal(t, "20", r.URL.Query().Get("Limit"))
+		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
+			Items: []api.Item{{Id: "ep1", Name: "Episode 1", Type: "Episode"}},
+		}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	items, err := client.GetNextUp(context.Background())
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "Episode 1", items[0].Name)
+}
+
+func TestGetResumeItems(t *testing.T) {
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/UserItems/Resume", r.URL.Path)
+		assert.Equal(t, "uid1", r.URL.Query().Get("UserId"))
+		assert.Equal(t, "20", r.URL.Query().Get("Limit"))
+		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
+			Items: []api.Item{{Id: "m1", Name: "Inception", Type: "Movie"}},
+		}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	items, err := client.GetResumeItems(context.Background())
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "Inception", items[0].Name)
+}
+
+func TestGetLatestMedia(t *testing.T) {
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/Users/uid1/Items/Latest", r.URL.Path)
+		assert.Equal(t, "20", r.URL.Query().Get("Limit"))
+		assert.NoError(t, json.NewEncoder(w).Encode([]api.Item{
+			{Id: "m2", Name: "Dune", Type: "Movie"},
+		}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	items, err := client.GetLatestMedia(context.Background())
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "Dune", items[0].Name)
+}
+
+func TestGetFavorites(t *testing.T) {
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/Items", r.URL.Path)
+		assert.Equal(t, "true", r.URL.Query().Get("isFavorite"))
+		assert.Equal(t, "true", r.URL.Query().Get("Recursive"))
+		assert.Equal(t, "uid1", r.URL.Query().Get("UserId"))
+		assert.Equal(t, "20", r.URL.Query().Get("Limit"))
+		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
+			Items: []api.Item{{Id: "m3", Name: "The Matrix", Type: "Movie"}},
+		}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	items, err := client.GetFavorites(context.Background())
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "The Matrix", items[0].Name)
+}

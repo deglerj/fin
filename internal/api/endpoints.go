@@ -79,6 +79,34 @@ func (c *Client) GetImage(ctx context.Context, itemID string, maxWidth, maxHeigh
 	return c.getRaw(ctx, path)
 }
 
+func (c *Client) GetNextUp(ctx context.Context) ([]Item, error) {
+	q := fmt.Sprintf("/Shows/NextUp?UserId=%s&Limit=20&Fields=Overview,People,CommunityRating,ProductionYear", c.userID)
+	var resp ItemsResponse
+	err := c.get(ctx, q, &resp)
+	return resp.Items, err
+}
+
+func (c *Client) GetResumeItems(ctx context.Context) ([]Item, error) {
+	q := fmt.Sprintf("/UserItems/Resume?UserId=%s&Limit=20&Fields=Overview,People,CommunityRating,ProductionYear", c.userID)
+	var resp ItemsResponse
+	err := c.get(ctx, q, &resp)
+	return resp.Items, err
+}
+
+func (c *Client) GetLatestMedia(ctx context.Context) ([]Item, error) {
+	q := fmt.Sprintf("/Users/%s/Items/Latest?Limit=20&Fields=Overview,People,CommunityRating,ProductionYear", c.userID)
+	var items []Item
+	err := c.get(ctx, q, &items)
+	return items, err
+}
+
+func (c *Client) GetFavorites(ctx context.Context) ([]Item, error) {
+	q := fmt.Sprintf("/Items?isFavorite=true&Recursive=true&UserId=%s&Limit=20&Fields=Overview,People,CommunityRating,ProductionYear", c.userID)
+	var resp ItemsResponse
+	err := c.get(ctx, q, &resp)
+	return resp.Items, err
+}
+
 func (c *Client) StreamURL(item Item) string {
 	if item.Type == "Audio" || item.MediaType == "Audio" {
 		return fmt.Sprintf("%s/Audio/%s/stream?api_key=%s&static=true", c.baseURL, item.Id, c.token)
