@@ -12,6 +12,7 @@ type Config struct {
 	UI          UIConfig          `toml:"ui"`
 	Player      PlayerConfig      `toml:"player"`
 	Keybindings KeybindingsConfig `toml:"keybindings"`
+	configDir   string
 }
 
 type ServerConfig struct {
@@ -48,7 +49,7 @@ func defaults() *Config {
 	}
 }
 
-func configDir() string {
+func defaultConfigDir() string {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		return filepath.Join(xdg, "fin")
 	}
@@ -59,19 +60,17 @@ func configDir() string {
 	return filepath.Join(home, ".config", "fin")
 }
 
-// CredentialsPath returns the path to the credentials file.
-func CredentialsPath() string {
-	return filepath.Join(configDir(), "credentials")
-}
-
-// CredentialsPath returns the path to the credentials file (method form for use with a Config receiver).
 func (c *Config) CredentialsPath() string {
-	return CredentialsPath()
+	return filepath.Join(c.configDir, "credentials")
 }
 
-func Load() (*Config, error) {
+func Load(dir string) (*Config, error) {
+	if dir == "" {
+		dir = defaultConfigDir()
+	}
 	cfg := defaults()
-	path := filepath.Join(configDir(), "config.toml")
+	cfg.configDir = dir
+	path := filepath.Join(dir, "config.toml")
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return cfg, nil
