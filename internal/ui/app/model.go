@@ -130,11 +130,17 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.fetchLibraries()
 
 	case msg.LibrariesLoaded:
-		items := make([]api.Item, len(message.Libraries))
-		for i, lib := range message.Libraries {
-			items[i] = api.Item{Id: lib.Id, Name: lib.Name, Type: "Folder"}
+		virtual := []api.Item{
+			{Id: "__next_up__", Name: "Next Up", Type: "VirtualSection"},
+			{Id: "__resume__", Name: "Continue Watching", Type: "VirtualSection"},
+			{Id: "__latest__", Name: "Recently Added", Type: "VirtualSection"},
+			{Id: "__favorites__", Name: "Favorites", Type: "VirtualSection"},
 		}
-		return m.updateBrowser(msg.PushLevel{Items: items, LevelName: "Libraries"})
+		libs := make([]api.Item, len(message.Libraries))
+		for i, lib := range message.Libraries {
+			libs[i] = api.Item{Id: lib.Id, Name: lib.Name, Type: "Folder"}
+		}
+		return m.updateBrowser(msg.PushLevel{Items: append(virtual, libs...), LevelName: "Libraries"})
 
 	case msg.NavigateToItem:
 		m.overlay = overlayNone

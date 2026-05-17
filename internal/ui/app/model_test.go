@@ -48,3 +48,21 @@ func TestAppErrorResetsBrowserLoading(t *testing.T) {
 	m5, _ := m4.(app.Model).Update(msg.AppError{Err: fmt.Errorf("network error")})
 	require.NotContains(t, m5.(app.Model).View(), "Loading...")
 }
+
+func TestLibrariesLoadedPrependsVirtualSections(t *testing.T) {
+	m := app.New(nil, nil, false)
+	// Go to browser screen first
+	m2, _ := m.Update(msg.LoginSuccess{ServerURL: "http://jf", UserID: "u1", AccessToken: "tok"})
+	// Set terminal size so items are rendered in View
+	m3, _ := m2.(app.Model).Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	// Send libraries
+	m4, _ := m3.(app.Model).Update(msg.LibrariesLoaded{
+		Libraries: []api.Library{{Id: "lib1", Name: "Movies"}},
+	})
+	view := m4.(app.Model).View()
+	require.Contains(t, view, "Next Up")
+	require.Contains(t, view, "Continue Watching")
+	require.Contains(t, view, "Recently Added")
+	require.Contains(t, view, "Favorites")
+	require.Contains(t, view, "Movies")
+}
