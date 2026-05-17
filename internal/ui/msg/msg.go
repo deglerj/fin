@@ -48,6 +48,12 @@ type CloseOverlay struct{}
 type PlayItem struct{ Item api.Item }
 type PlayerDone struct{ Err error }
 
+// Played status
+type PlayedToggled struct {
+	ItemID string
+	Played bool
+}
+
 // Error
 type AppError struct{ Err error }
 type DismissError struct{}
