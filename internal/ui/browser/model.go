@@ -353,14 +353,14 @@ func truncate(s string, maxWidth int) string {
 
 func formatItem(item api.Item) string {
 	name := item.Name
-	if item.UserData.Played {
-		name = "✓ " + name
-	}
 	if item.Type == "Episode" && item.IndexNumber > 0 {
 		name = fmt.Sprintf("S%02dE%02d – %s", item.ParentIndexNumber, item.IndexNumber, item.Name)
 	}
 	if item.Type == "Episode" && item.SeriesName != "" {
 		name = item.SeriesName + ": " + name
+	}
+	if item.UserData.Played {
+		name = "✓ " + name
 	}
 	if item.RunTimeTicks > 0 {
 		mins := item.RunTimeTicks / 600_000_000
