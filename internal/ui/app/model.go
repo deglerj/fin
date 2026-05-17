@@ -220,6 +220,8 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return msg.PushLevel{Items: items, LevelName: "Favorites"}
 			}
+		default:
+			return m, nil
 		}
 
 	case tea.KeyMsg:
