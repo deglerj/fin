@@ -18,8 +18,9 @@ import (
 var version = "dev"
 
 func main() {
-	if len(os.Args) == 2 && os.Args[1] == "--version" {
-		fmt.Println("fin", version)
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		fmt.Println("fin — A terminal UI client for Jellyfin")
+		fmt.Println("Version:", version)
 		return
 	}
 	cfg, err := config.Load()
