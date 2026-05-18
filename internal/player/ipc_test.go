@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -12,9 +13,13 @@ import (
 )
 
 // listenUnix creates a temporary Unix socket listener and registers cleanup.
+// Uses os.MkdirTemp instead of t.TempDir to keep the path under macOS's 104-char Unix socket limit.
 func listenUnix(t *testing.T) (net.Listener, string) {
 	t.Helper()
-	addr := filepath.Join(t.TempDir(), "mpv.sock")
+	dir, err := os.MkdirTemp("", "fin")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	addr := filepath.Join(dir, "mpv.sock")
 	ln, err := net.Listen("unix", addr)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = ln.Close() })
@@ -91,7 +96,10 @@ func TestQueryPositionErrorOnClosedSocket(t *testing.T) {
 }
 
 func TestWaitForSocketConnectsAfterDelay(t *testing.T) {
-	addr := filepath.Join(t.TempDir(), "delayed.sock")
+	dir, err := os.MkdirTemp("", "fin")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	addr := filepath.Join(dir, "delayed.sock")
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
@@ -112,7 +120,10 @@ func TestWaitForSocketConnectsAfterDelay(t *testing.T) {
 }
 
 func TestWaitForSocketTimesOut(t *testing.T) {
-	addr := filepath.Join(t.TempDir(), "nonexistent.sock")
-	_, err := waitForSocket(addr, 150*time.Millisecond)
+	dir, err := os.MkdirTemp("", "fin")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	addr := filepath.Join(dir, "nonexistent.sock")
+	_, err = waitForSocket(addr, 150*time.Millisecond)
 	require.Error(t, err)
 }
