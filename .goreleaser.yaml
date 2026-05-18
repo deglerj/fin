@@ -21,15 +21,17 @@ builds:
       - arm64
 
 archives:
-  - id: fin
+  - id: fin-unix
     name_template: "fin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: tar.gz
-    format_overrides:
-      - goos: windows
-        format: zip
+    goos: [linux, darwin]
     files:
       - src: man/fin.1
         dst: share/man/man1
+  - id: fin-windows
+    name_template: "fin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: zip
+    goos: [windows]
 
 checksum:
   name_template: checksums.txt
