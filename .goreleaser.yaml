@@ -5,7 +5,7 @@ before:
     - go mod tidy
 
 builds:
-  - id: fin
+  - id: fin-unix
     main: ./cmd/fin
     binary: fin
     ldflags:
@@ -15,6 +15,17 @@ builds:
     goos:
       - linux
       - darwin
+    goarch:
+      - amd64
+      - arm64
+  - id: fin-windows
+    main: ./cmd/fin
+    binary: fin
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    env:
+      - CGO_ENABLED=0
+    goos:
       - windows
     goarch:
       - amd64
@@ -22,18 +33,16 @@ builds:
 
 archives:
   - id: fin-unix
-    builds: [fin]
+    ids: [fin-unix]
     name_template: "fin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: tar.gz
-    goos: [linux, darwin]
     files:
       - src: man/fin.1
         dst: share/man/man1
   - id: fin-windows
-    builds: [fin]
+    ids: [fin-windows]
     name_template: "fin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: zip
-    goos: [windows]
 
 checksum:
   name_template: checksums.txt
