@@ -7,6 +7,7 @@ A terminal UI client for [Jellyfin](https://jellyfin.org), built with [Bubble Te
 - Browse libraries, series, seasons, and episodes
 - Full-text search with debounce
 - Play media via mpv
+- Reports playback progress to Jellyfin via mpv IPC
 - Item details overlay
 - Inline cover art via [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/) (optional)
 - Encrypted credential storage (AES-GCM, keyed by machine ID)
@@ -44,9 +45,8 @@ Credentials are stored encrypted at `~/.config/fin/credentials`. Delete this fil
 | Key | Action |
 |-----|--------|
 | `↑` / `↓` | Navigate |
-| `→` / `Enter` | Select / open |
+| `→` / `Enter` | Navigate / play episode |
 | `←` / `Esc` / `Backspace` | Back |
-| `Enter` | Play (on episode) |
 | `/` | Search |
 | `r` | Random item |
 | `m` | Mark played / unplayed |
