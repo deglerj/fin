@@ -27,6 +27,9 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
+    files:
+      - src: man/fin.1
+        dst: share/man/man1
 
 checksum:
   name_template: checksums.txt
