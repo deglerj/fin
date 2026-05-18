@@ -63,3 +63,14 @@ type Library struct {
 type LibraryResponse struct {
 	Items []Library `json:"Items"`
 }
+
+type PlaybackReport struct {
+	ItemId        string `json:"ItemId"`
+	PlaySessionId string `json:"PlaySessionId"`
+	MediaSourceId string `json:"MediaSourceId"`
+	PositionTicks int64  `json:"PositionTicks"`
+	IsPaused      bool   `json:"IsPaused"`
+	CanSeek       bool   `json:"CanSeek"`
+	PlayMethod    string `json:"PlayMethod"`
+	RepeatMode    string `json:"RepeatMode"`
+}
