@@ -29,7 +29,7 @@ func TestQueryPositionReturnsExpectedTicks(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		scanner := bufio.NewScanner(conn)
 		for scanner.Scan() {
 			_, _ = fmt.Fprintf(conn, "{\"request_id\":1,\"data\":60.0,\"error\":\"success\"}\n")
@@ -38,7 +38,7 @@ func TestQueryPositionReturnsExpectedTicks(t *testing.T) {
 
 	conn, err := net.Dial("unix", addr)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	ticks, err := queryPosition(conn, bufio.NewScanner(conn))
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestQueryPositionSkipsEventLines(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		scanner := bufio.NewScanner(conn)
 		for scanner.Scan() {
 			// Send an mpv event first, then the actual response.
@@ -64,7 +64,7 @@ func TestQueryPositionSkipsEventLines(t *testing.T) {
 
 	conn, err := net.Dial("unix", addr)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	ticks, err := queryPosition(conn, bufio.NewScanner(conn))
 	require.NoError(t, err)
@@ -79,12 +79,12 @@ func TestQueryPositionErrorOnClosedSocket(t *testing.T) {
 		if err != nil {
 			return
 		}
-		conn.Close() // close immediately — simulates mpv exit
+		_ = conn.Close() // close immediately — simulates mpv exit
 	}()
 
 	conn, err := net.Dial("unix", addr)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	_, err = queryPosition(conn, bufio.NewScanner(conn))
 	require.Error(t, err)
@@ -99,16 +99,16 @@ func TestWaitForSocketConnectsAfterDelay(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer ln.Close()
+		defer func() { _ = ln.Close() }()
 		conn, _ := ln.Accept()
 		if conn != nil {
-			conn.Close()
+			_ = conn.Close()
 		}
 	}()
 
 	conn, err := waitForSocket(addr, 2*time.Second)
 	require.NoError(t, err)
-	conn.Close()
+	_ = conn.Close()
 }
 
 func TestWaitForSocketTimesOut(t *testing.T) {
