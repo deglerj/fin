@@ -72,6 +72,9 @@ func waitForSocket(path string, timeout time.Duration) (net.Conn, error) {
 // queryPosition sends a get_property command to mpv and returns the current
 // playback position in Jellyfin ticks (100-nanosecond intervals).
 // Returns an error if the connection is closed (mpv has exited).
+// Note: if the 5s deadline fires mid-read (slow network), the shared scanner
+// is permanently poisoned and Monitor exits early — acceptable under the
+// best-effort reporting policy.
 func queryPosition(conn net.Conn, scanner *bufio.Scanner) (int64, error) {
 	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 	defer func() { _ = conn.SetDeadline(time.Time{}) }()
