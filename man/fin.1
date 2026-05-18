@@ -1,0 +1,57 @@
+.TH FIN 1 "2026" "fin" "User Commands"
+.SH NAME
+fin \- terminal UI client for Jellyfin
+.SH SYNOPSIS
+.B fin
+[\fB\-\-config\fR \fIDIR\fR]
+[\fB\-\-version\fR]
+.SH DESCRIPTION
+\fBfin\fR is a terminal UI application for browsing and playing media
+from a Jellyfin media server.
+It supports library browsing, full-text search, item details with optional
+cover art (Kitty graphics protocol), and media playback via mpv.
+.SH OPTIONS
+.TP
+.BI \-\-config " DIR"
+Use
+.I DIR
+as the configuration directory instead of the XDG default.
+Both the config file and credentials file are read from this directory.
+.TP
+.B \-\-version ", " \-v
+Print version information and exit.
+.TP
+.BR \-h ", " \-\-help
+Show usage information and exit.
+.SH FILES
+.TP
+.I ~/.config/fin/config.toml
+TOML configuration file.
+.RS
+.TP
+.B [player] command
+Media player command.
+Default:
+.BR mpv .
+.TP
+.B [player] extra_args
+Additional arguments passed to the player.
+.TP
+.B [server] url
+Jellyfin server URL.
+Pre-filled after first login.
+.RE
+.TP
+.I ~/.config/fin/credentials
+AES\-GCM encrypted credentials file, keyed by machine ID.
+Delete this file to log out.
+.SH ENVIRONMENT
+.TP
+.B XDG_CONFIG_HOME
+Overrides the base directory for configuration files.
+When set, the config directory is
+.IR $XDG_CONFIG_HOME/fin
+instead of
+.IR ~/.config/fin .
+.SH SEE ALSO
+.BR mpv (1)
