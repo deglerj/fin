@@ -221,3 +221,81 @@ func TestMarkPlayedHTTPError(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "500")
 }
+
+func TestReportPlaybackStart(t *testing.T) {
+	var gotMethod, gotPath string
+	var gotBody api.PlaybackReport
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	client.SetAuth("uid1", "tok123")
+	report := api.PlaybackReport{
+		ItemId:        "item1",
+		PlaySessionId: "sess1",
+		MediaSourceId: "item1",
+		PositionTicks: 0,
+		CanSeek:       true,
+		PlayMethod:    "DirectStream",
+		RepeatMode:    "RepeatNone",
+	}
+	err := client.ReportPlaybackStart(context.Background(), report)
+	require.NoError(t, err)
+	require.Equal(t, "POST", gotMethod)
+	require.Equal(t, "/Sessions/Playing", gotPath)
+	require.Equal(t, "item1", gotBody.ItemId)
+	require.Equal(t, "sess1", gotBody.PlaySessionId)
+	require.True(t, gotBody.CanSeek)
+}
+
+func TestReportPlaybackProgress(t *testing.T) {
+	var gotPath string
+	var gotBody api.PlaybackReport
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	client.SetAuth("uid1", "tok123")
+	report := api.PlaybackReport{
+		ItemId:        "item1",
+		PlaySessionId: "sess1",
+		PositionTicks: 100_000_000,
+	}
+	err := client.ReportPlaybackProgress(context.Background(), report)
+	require.NoError(t, err)
+	require.Equal(t, "/Sessions/Playing/Progress", gotPath)
+	require.Equal(t, int64(100_000_000), gotBody.PositionTicks)
+}
+
+func TestReportPlaybackStopped(t *testing.T) {
+	var gotPath string
+	var gotBody api.PlaybackReport
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	client.SetAuth("uid1", "tok123")
+	report := api.PlaybackReport{
+		ItemId:        "item1",
+		PlaySessionId: "sess1",
+		PositionTicks: 900_000_000,
+	}
+	err := client.ReportPlaybackStopped(context.Background(), report)
+	require.NoError(t, err)
+	require.Equal(t, "/Sessions/Playing/Stopped", gotPath)
+	require.Equal(t, int64(900_000_000), gotBody.PositionTicks)
+}
+
+func TestReportPlaybackHTTPError(t *testing.T) {
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	client.SetAuth("uid1", "tok123")
+	err := client.ReportPlaybackStart(context.Background(), api.PlaybackReport{ItemId: "item1"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "500")
+}

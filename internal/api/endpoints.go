@@ -121,3 +121,27 @@ func (c *Client) MarkPlayed(ctx context.Context, itemID string) error {
 func (c *Client) MarkUnplayed(ctx context.Context, itemID string) error {
 	return c.doNoResponse(ctx, "DELETE", fmt.Sprintf("/Users/%s/PlayedItems/%s", c.userID, itemID))
 }
+
+func (c *Client) ReportPlaybackStart(ctx context.Context, r PlaybackReport) error {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+	return c.postNoResponse(ctx, "/Sessions/Playing", bytes.NewReader(b))
+}
+
+func (c *Client) ReportPlaybackProgress(ctx context.Context, r PlaybackReport) error {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+	return c.postNoResponse(ctx, "/Sessions/Playing/Progress", bytes.NewReader(b))
+}
+
+func (c *Client) ReportPlaybackStopped(ctx context.Context, r PlaybackReport) error {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+	return c.postNoResponse(ctx, "/Sessions/Playing/Stopped", bytes.NewReader(b))
+}
