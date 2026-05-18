@@ -213,7 +213,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				if err != nil {
 					return msg.AppError{Err: err}
 				}
-				return msg.PushLevel{Items: items, LevelName: "Next Up"}
+				return msg.PushLevel{Items: items, LevelName: "Next Up", ParentID: "__next_up__"}
 			}
 		case "__resume__":
 			return m, func() tea.Msg {
@@ -221,7 +221,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				if err != nil {
 					return msg.AppError{Err: err}
 				}
-				return msg.PushLevel{Items: items, LevelName: "Continue Watching"}
+				return msg.PushLevel{Items: items, LevelName: "Continue Watching", ParentID: "__resume__"}
 			}
 		case "__latest__":
 			return m, func() tea.Msg {
@@ -229,7 +229,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				if err != nil {
 					return msg.AppError{Err: err}
 				}
-				return msg.PushLevel{Items: items, LevelName: "Recently Added"}
+				return msg.PushLevel{Items: items, LevelName: "Recently Added", ParentID: "__latest__"}
 			}
 		case "__favorites__":
 			return m, func() tea.Msg {
@@ -237,7 +237,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				if err != nil {
 					return msg.AppError{Err: err}
 				}
-				return msg.PushLevel{Items: items, LevelName: "Favorites"}
+				return msg.PushLevel{Items: items, LevelName: "Favorites", ParentID: "__favorites__"}
 			}
 		default:
 			return m, nil

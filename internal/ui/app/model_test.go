@@ -225,3 +225,69 @@ func TestPlayerDoneWithErrorStillRefreshes(t *testing.T) {
 	_, ok := result.(msg.PlayedToggled)
 	require.True(t, ok, "expected PlayedToggled even on player error, got %T", result)
 }
+
+func TestFetchVirtualSectionNextUpSetsParentID(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/Shows/NextUp" {
+			require.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
+				Items: []api.Item{{Id: "ep1", Name: "Ep 1", Type: "Episode"}},
+			}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	_, cmd := m.Update(msg.FetchVirtualSection{ID: "__next_up__"})
+	require.NotNil(t, cmd)
+	push, ok := cmd().(msg.PushLevel)
+	require.True(t, ok)
+	require.Equal(t, "__next_up__", push.ParentID)
+}
+
+func TestFetchVirtualSectionResumeSetsParentID(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/UserItems/Resume" {
+			require.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
+				Items: []api.Item{{Id: "m1", Name: "Inception", Type: "Movie"}},
+			}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	_, cmd := m.Update(msg.FetchVirtualSection{ID: "__resume__"})
+	require.NotNil(t, cmd)
+	push, ok := cmd().(msg.PushLevel)
+	require.True(t, ok)
+	require.Equal(t, "__resume__", push.ParentID)
+}
+
+func TestFetchVirtualSectionLatestSetsParentID(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/Items/Latest") {
+			require.NoError(t, json.NewEncoder(w).Encode([]api.Item{{Id: "m2", Name: "Dune", Type: "Movie"}}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	_, cmd := m.Update(msg.FetchVirtualSection{ID: "__latest__"})
+	require.NotNil(t, cmd)
+	push, ok := cmd().(msg.PushLevel)
+	require.True(t, ok)
+	require.Equal(t, "__latest__", push.ParentID)
+}
+
+func TestFetchVirtualSectionFavoritesSetsParentID(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/Items" && r.URL.Query().Get("isFavorite") == "true" {
+			require.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
+				Items: []api.Item{{Id: "m3", Name: "Matrix", Type: "Movie"}},
+			}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	_, cmd := m.Update(msg.FetchVirtualSection{ID: "__favorites__"})
+	require.NotNil(t, cmd)
+	push, ok := cmd().(msg.PushLevel)
+	require.True(t, ok)
+	require.Equal(t, "__favorites__", push.ParentID)
+}
