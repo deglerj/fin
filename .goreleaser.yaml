@@ -22,6 +22,7 @@ builds:
 
 archives:
   - id: fin-unix
+    builds: [fin]
     name_template: "fin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: tar.gz
     goos: [linux, darwin]
@@ -29,6 +30,7 @@ archives:
       - src: man/fin.1
         dst: share/man/man1
   - id: fin-windows
+    builds: [fin]
     name_template: "fin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: zip
     goos: [windows]

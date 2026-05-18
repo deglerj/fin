@@ -31,7 +31,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage:\n  fin [--config DIR] [--version]\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		fmt.Fprintf(os.Stderr, "  --config DIR   Config directory (default: ~/.config/fin)\n")
-		fmt.Fprintf(os.Stderr, "  --version      Print version and exit\n")
+		fmt.Fprintf(os.Stderr, "  --version, -v  Print version and exit\n")
 		fmt.Fprintf(os.Stderr, "  -h, --help     Show this help\n\n")
 		fmt.Fprintf(os.Stderr, "Config:      ~/.config/fin/config.toml\n")
 		fmt.Fprintf(os.Stderr, "Credentials: ~/.config/fin/credentials\n")
