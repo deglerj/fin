@@ -83,6 +83,13 @@ func (m Model) visibleHeight() int {
 func (m Model) WithSize(w, h int) Model { m.width = w; m.height = h; return m }
 func (m Model) IsLoading() bool         { return m.loading || len(m.stack) == 0 }
 
+func (m Model) CurrentLevelParentID() string {
+	if len(m.stack) == 0 {
+		return ""
+	}
+	return m.stack[len(m.stack)-1].parentID
+}
+
 func (m Model) Init() tea.Cmd { return m.spinner.Tick }
 
 func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {

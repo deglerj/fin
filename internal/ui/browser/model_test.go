@@ -224,3 +224,21 @@ func TestUnplayedItemNoCheckmark(t *testing.T) {
 	m2, _ := m.Update(msg.PushLevel{Items: items, LevelName: "Movies"})
 	require.NotContains(t, m2.(browser.Model).View(), "✓")
 }
+
+func TestCurrentLevelParentIDEmptyStack(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	require.Equal(t, "", m.CurrentLevelParentID())
+}
+
+func TestCurrentLevelParentIDAfterPush(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{ParentID: "season1", LevelName: "Season 1", Items: makeItems("Ep 1")})
+	require.Equal(t, "season1", m2.(browser.Model).CurrentLevelParentID())
+}
+
+func TestCurrentLevelParentIDReturnsTopOfStack(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{ParentID: "series1", LevelName: "Series", Items: makeItems("S1")})
+	m3, _ := m2.(browser.Model).Update(msg.PushLevel{ParentID: "season1", LevelName: "Season 1", Items: makeItems("Ep 1")})
+	require.Equal(t, "season1", m3.(browser.Model).CurrentLevelParentID())
+}
