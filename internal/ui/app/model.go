@@ -143,6 +143,9 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.updateBrowser(msg.PushLevel{Items: append(virtual, libs...), LevelName: "Libraries"})
 
+	case msg.PushLevel:
+		return m.updateBrowser(message)
+
 	case msg.NavigateToItem:
 		m.overlay = overlayNone
 		return m.updateBrowser(msg.PushLevel{Items: []api.Item{message.Item}, LevelName: message.Item.Name})
@@ -191,6 +194,10 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+
+	case msg.PlayedToggled:
+		m, cmd := m.updateBrowser(message)
+		return m, tea.Batch(cmd, m.refreshCurrentLevel())
 
 	case msg.AppError:
 		m.errorMsg = message.Err.Error()
@@ -346,6 +353,56 @@ func (m Model) fetchLibraries() tea.Cmd {
 			return msg.AppError{Err: err}
 		}
 		return msg.LibrariesLoaded{Libraries: libs}
+	}
+}
+
+func (m Model) refreshCurrentLevel() tea.Cmd {
+	parentID := m.browser.CurrentLevelParentID()
+	c := m.client
+	if c == nil || parentID == "" {
+		return nil
+	}
+	switch parentID {
+	case "__next_up__":
+		return func() tea.Msg {
+			items, err := c.GetNextUp(context.Background())
+			if err != nil {
+				return msg.AppError{Err: err}
+			}
+			return msg.RefreshLevel{ParentID: "__next_up__", Items: items}
+		}
+	case "__resume__":
+		return func() tea.Msg {
+			items, err := c.GetResumeItems(context.Background())
+			if err != nil {
+				return msg.AppError{Err: err}
+			}
+			return msg.RefreshLevel{ParentID: "__resume__", Items: items}
+		}
+	case "__latest__":
+		return func() tea.Msg {
+			items, err := c.GetLatestMedia(context.Background())
+			if err != nil {
+				return msg.AppError{Err: err}
+			}
+			return msg.RefreshLevel{ParentID: "__latest__", Items: items}
+		}
+	case "__favorites__":
+		return func() tea.Msg {
+			items, err := c.GetFavorites(context.Background())
+			if err != nil {
+				return msg.AppError{Err: err}
+			}
+			return msg.RefreshLevel{ParentID: "__favorites__", Items: items}
+		}
+	default:
+		return func() tea.Msg {
+			items, err := c.GetItems(context.Background(), parentID, nil)
+			if err != nil {
+				return msg.AppError{Err: err}
+			}
+			return msg.RefreshLevel{ParentID: parentID, Items: items}
+		}
 	}
 }
 
