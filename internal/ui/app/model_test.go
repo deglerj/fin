@@ -380,9 +380,87 @@ func TestPlayedToggledEmptyParentIDNoRefresh(t *testing.T) {
 		Items:     []api.Item{{Id: "lib1", Name: "Movies", Type: "Folder"}},
 	})
 	_, cmd := m2.(app.Model).Update(msg.PlayedToggled{ItemID: "lib1", Played: true})
+	require.Nil(t, cmd, "expected no cmd when parentID is empty")
+}
+
+func TestPlayedToggledRefreshesVirtualSectionResume(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/UserItems/Resume" {
+			require.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
+				Items: []api.Item{{Id: "m1", Name: "Inception", Type: "Movie"}},
+			}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	m2, _ := m.Update(msg.PushLevel{
+		ParentID:  "__resume__",
+		LevelName: "Continue Watching",
+		Items:     []api.Item{{Id: "m1", Name: "Inception", Type: "Movie"}},
+	})
+	_, cmd := m2.(app.Model).Update(msg.PlayedToggled{ItemID: "m1", Played: true})
+	require.NotNil(t, cmd)
 	msgs := executeBatch(cmd)
+	var found bool
 	for _, result := range msgs {
-		_, isRefresh := result.(msg.RefreshLevel)
-		require.False(t, isRefresh, "should not emit RefreshLevel when parentID is empty")
+		if rl, ok := result.(msg.RefreshLevel); ok {
+			require.Equal(t, "__resume__", rl.ParentID)
+			found = true
+		}
 	}
+	require.True(t, found, "expected RefreshLevel{ParentID: __resume__} in batch cmds")
+}
+
+func TestPlayedToggledRefreshesVirtualSectionLatest(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/Items/Latest") {
+			require.NoError(t, json.NewEncoder(w).Encode([]api.Item{{Id: "m2", Name: "Dune", Type: "Movie"}}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	m2, _ := m.Update(msg.PushLevel{
+		ParentID:  "__latest__",
+		LevelName: "Recently Added",
+		Items:     []api.Item{{Id: "m2", Name: "Dune", Type: "Movie"}},
+	})
+	_, cmd := m2.(app.Model).Update(msg.PlayedToggled{ItemID: "m2", Played: true})
+	require.NotNil(t, cmd)
+	msgs := executeBatch(cmd)
+	var found bool
+	for _, result := range msgs {
+		if rl, ok := result.(msg.RefreshLevel); ok {
+			require.Equal(t, "__latest__", rl.ParentID)
+			found = true
+		}
+	}
+	require.True(t, found, "expected RefreshLevel{ParentID: __latest__} in batch cmds")
+}
+
+func TestPlayedToggledRefreshesVirtualSectionFavorites(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/Items" && r.URL.Query().Get("isFavorite") == "true" {
+			require.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
+				Items: []api.Item{{Id: "m3", Name: "Matrix", Type: "Movie"}},
+			}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	m2, _ := m.Update(msg.PushLevel{
+		ParentID:  "__favorites__",
+		LevelName: "Favorites",
+		Items:     []api.Item{{Id: "m3", Name: "Matrix", Type: "Movie"}},
+	})
+	_, cmd := m2.(app.Model).Update(msg.PlayedToggled{ItemID: "m3", Played: true})
+	require.NotNil(t, cmd)
+	msgs := executeBatch(cmd)
+	var found bool
+	for _, result := range msgs {
+		if rl, ok := result.(msg.RefreshLevel); ok {
+			require.Equal(t, "__favorites__", rl.ParentID)
+			found = true
+		}
+	}
+	require.True(t, found, "expected RefreshLevel{ParentID: __favorites__} in batch cmds")
 }

@@ -214,37 +214,15 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return msg.AppError{Err: fmt.Errorf("no client configured")} }
 		}
 		switch message.ID {
-		case "__next_up__":
+		case "__next_up__", "__resume__", "__latest__", "__favorites__":
+			id := message.ID
+			lname := virtualSectionName(id)
 			return m, func() tea.Msg {
-				items, err := c.GetNextUp(context.Background())
+				items, err := fetchVirtualItems(c, id)
 				if err != nil {
 					return msg.AppError{Err: err}
 				}
-				return msg.PushLevel{Items: items, LevelName: "Next Up", ParentID: "__next_up__"}
-			}
-		case "__resume__":
-			return m, func() tea.Msg {
-				items, err := c.GetResumeItems(context.Background())
-				if err != nil {
-					return msg.AppError{Err: err}
-				}
-				return msg.PushLevel{Items: items, LevelName: "Continue Watching", ParentID: "__resume__"}
-			}
-		case "__latest__":
-			return m, func() tea.Msg {
-				items, err := c.GetLatestMedia(context.Background())
-				if err != nil {
-					return msg.AppError{Err: err}
-				}
-				return msg.PushLevel{Items: items, LevelName: "Recently Added", ParentID: "__latest__"}
-			}
-		case "__favorites__":
-			return m, func() tea.Msg {
-				items, err := c.GetFavorites(context.Background())
-				if err != nil {
-					return msg.AppError{Err: err}
-				}
-				return msg.PushLevel{Items: items, LevelName: "Favorites", ParentID: "__favorites__"}
+				return msg.PushLevel{Items: items, LevelName: lname, ParentID: id}
 			}
 		default:
 			return m, nil
@@ -363,37 +341,13 @@ func (m Model) refreshCurrentLevel() tea.Cmd {
 		return nil
 	}
 	switch parentID {
-	case "__next_up__":
+	case "__next_up__", "__resume__", "__latest__", "__favorites__":
 		return func() tea.Msg {
-			items, err := c.GetNextUp(context.Background())
+			items, err := fetchVirtualItems(c, parentID)
 			if err != nil {
 				return msg.AppError{Err: err}
 			}
-			return msg.RefreshLevel{ParentID: "__next_up__", Items: items}
-		}
-	case "__resume__":
-		return func() tea.Msg {
-			items, err := c.GetResumeItems(context.Background())
-			if err != nil {
-				return msg.AppError{Err: err}
-			}
-			return msg.RefreshLevel{ParentID: "__resume__", Items: items}
-		}
-	case "__latest__":
-		return func() tea.Msg {
-			items, err := c.GetLatestMedia(context.Background())
-			if err != nil {
-				return msg.AppError{Err: err}
-			}
-			return msg.RefreshLevel{ParentID: "__latest__", Items: items}
-		}
-	case "__favorites__":
-		return func() tea.Msg {
-			items, err := c.GetFavorites(context.Background())
-			if err != nil {
-				return msg.AppError{Err: err}
-			}
-			return msg.RefreshLevel{ParentID: "__favorites__", Items: items}
+			return msg.RefreshLevel{ParentID: parentID, Items: items}
 		}
 	default:
 		return func() tea.Msg {
@@ -404,6 +358,34 @@ func (m Model) refreshCurrentLevel() tea.Cmd {
 			return msg.RefreshLevel{ParentID: parentID, Items: items}
 		}
 	}
+}
+
+func fetchVirtualItems(c *api.Client, parentID string) ([]api.Item, error) {
+	switch parentID {
+	case "__next_up__":
+		return c.GetNextUp(context.Background())
+	case "__resume__":
+		return c.GetResumeItems(context.Background())
+	case "__latest__":
+		return c.GetLatestMedia(context.Background())
+	case "__favorites__":
+		return c.GetFavorites(context.Background())
+	}
+	return nil, nil
+}
+
+func virtualSectionName(id string) string {
+	switch id {
+	case "__next_up__":
+		return "Next Up"
+	case "__resume__":
+		return "Continue Watching"
+	case "__latest__":
+		return "Recently Added"
+	case "__favorites__":
+		return "Favorites"
+	}
+	return ""
 }
 
 func saveCredentials(ls msg.LoginSuccess, cfg *config.Config) {
