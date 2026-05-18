@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 
@@ -18,12 +19,33 @@ import (
 var version = "dev"
 
 func main() {
-	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+	var showVersion bool
+	var configDir string
+
+	flag.BoolVar(&showVersion, "version", false, "Print version and exit")
+	flag.BoolVar(&showVersion, "v", false, "Print version and exit")
+	flag.StringVar(&configDir, "config", "", "Config `DIR` (default: ~/.config/fin)")
+
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "fin — A terminal UI client for Jellyfin\n\n")
+		fmt.Fprintf(os.Stderr, "Usage:\n  fin [--config DIR] [--version]\n\n")
+		fmt.Fprintf(os.Stderr, "Flags:\n")
+		fmt.Fprintf(os.Stderr, "  --config DIR   Config directory (default: ~/.config/fin)\n")
+		fmt.Fprintf(os.Stderr, "  --version      Print version and exit\n")
+		fmt.Fprintf(os.Stderr, "  -h, --help     Show this help\n\n")
+		fmt.Fprintf(os.Stderr, "Config:      ~/.config/fin/config.toml\n")
+		fmt.Fprintf(os.Stderr, "Credentials: ~/.config/fin/credentials\n")
+	}
+
+	flag.Parse()
+
+	if showVersion {
 		fmt.Println("fin — A terminal UI client for Jellyfin")
 		fmt.Println("Version:", version)
 		return
 	}
-	cfg, err := config.Load()
+
+	cfg, err := config.Load(configDir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "config error:", err)
 		os.Exit(1)
