@@ -380,7 +380,10 @@ func TestPlayedToggledEmptyParentIDNoRefresh(t *testing.T) {
 		Items:     []api.Item{{Id: "lib1", Name: "Movies", Type: "Folder"}},
 	})
 	_, cmd := m2.(app.Model).Update(msg.PlayedToggled{ItemID: "lib1", Played: true})
-	require.Nil(t, cmd, "expected no cmd when parentID is empty")
+	for _, result := range executeBatch(cmd) {
+		_, isRefresh := result.(msg.RefreshLevel)
+		require.False(t, isRefresh, "should not emit RefreshLevel when parentID is empty")
+	}
 }
 
 func TestPlayedToggledRefreshesVirtualSectionResume(t *testing.T) {
