@@ -11,6 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/player"
 	"github.com/deglerj/fin/internal/ui/app"
 	"github.com/deglerj/fin/internal/ui/msg"
 	"github.com/stretchr/testify/require"
@@ -151,4 +152,76 @@ func TestFetchVirtualSectionFavorites(t *testing.T) {
 	require.True(t, ok, "expected PushLevel, got %T", result)
 	require.Equal(t, "Favorites", push.LevelName)
 	require.Len(t, push.Items, 1)
+}
+
+func TestPlayerDoneRefreshesPlayedStatus(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/Items/movie1") {
+			require.NoError(t, json.NewEncoder(w).Encode(api.Item{
+				Id:       "movie1",
+				Type:     "Movie",
+				UserData: api.UserData{Played: true},
+			}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+
+	// PlayItem stores the item even when cfg is nil (no actual player launched).
+	m2, _ := m.Update(msg.PlayItem{Item: api.Item{Id: "movie1", Name: "Dune", Type: "Movie"}})
+
+	// PlayerDone should return a cmd that fetches the updated item.
+	_, cmd := m2.(app.Model).Update(player.DoneMsg{})
+	require.NotNil(t, cmd)
+
+	result := cmd()
+	toggled, ok := result.(msg.PlayedToggled)
+	require.True(t, ok, "expected PlayedToggled, got %T", result)
+	require.Equal(t, "movie1", toggled.ItemID)
+	require.True(t, toggled.Played)
+}
+
+func TestPlayerDoneNoItemStoredReturnsNilCmd(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	// No PlayItem sent — playingItem is nil.
+	_, cmd := m.Update(player.DoneMsg{})
+	require.Nil(t, cmd)
+}
+
+func TestPlayerDoneGetItemFailsGracefully(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	m2, _ := m.Update(msg.PlayItem{Item: api.Item{Id: "movie1", Type: "Movie"}})
+	_, cmd := m2.(app.Model).Update(player.DoneMsg{})
+	require.NotNil(t, cmd)
+
+	result := cmd()
+	// GetItem fails → nil result, no PlayedToggled emitted.
+	require.Nil(t, result)
+}
+
+func TestPlayerDoneWithErrorStillRefreshes(t *testing.T) {
+	m := newAppWithMockServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/Items/movie1") {
+			require.NoError(t, json.NewEncoder(w).Encode(api.Item{
+				Id:       "movie1",
+				Type:     "Movie",
+				UserData: api.UserData{Played: false},
+			}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	m2, _ := m.Update(msg.PlayItem{Item: api.Item{Id: "movie1", Type: "Movie"}})
+
+	// Error from player — refresh still happens.
+	_, cmd := m2.(app.Model).Update(player.DoneMsg{Err: fmt.Errorf("mpv crashed")})
+	require.NotNil(t, cmd)
+
+	result := cmd()
+	_, ok := result.(msg.PlayedToggled)
+	require.True(t, ok, "expected PlayedToggled even on player error, got %T", result)
 }

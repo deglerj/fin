@@ -21,7 +21,7 @@ func Monitor(socketPath string, client *api.Client, item api.Item, startSec int6
 	if err != nil {
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	sessionID := newSessionID()
 	ctx := context.Background()

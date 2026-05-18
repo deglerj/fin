@@ -17,7 +17,7 @@ func listenUnix(t *testing.T) (net.Listener, string) {
 	addr := filepath.Join(t.TempDir(), "mpv.sock")
 	ln, err := net.Listen("unix", addr)
 	require.NoError(t, err)
-	t.Cleanup(func() { ln.Close() })
+	t.Cleanup(func() { _ = ln.Close() })
 	return ln, addr
 }
 

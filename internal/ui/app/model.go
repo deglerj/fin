@@ -50,6 +50,7 @@ type Model struct {
 
 	overlay        overlayKind
 	selectedItemID string
+	playingItem    *api.Item
 	errorMsg       string
 	width          int
 	height         int
@@ -160,16 +161,34 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case msg.PlayItem:
+		item := message.Item
+		m.playingItem = &item
 		if m.cfg == nil || m.client == nil {
 			return m, nil
 		}
-		url := m.client.StreamURL(message.Item)
-		startSec := message.Item.UserData.PlaybackPositionTicks / 10_000_000
-		return m, player.Play(m.cfg.Player.Command, m.cfg.Player.ExtraArgs, url, message.Item.MediaTitle(), startSec)
+		url := m.client.StreamURL(item)
+		startSec := item.UserData.PlaybackPositionTicks / 10_000_000
+		socketPath := player.SocketPath()
+		client := m.client
+		go player.Monitor(socketPath, client, item, startSec)
+		return m, player.Play(m.cfg.Player.Command, m.cfg.Player.ExtraArgs, url, item.MediaTitle(), startSec, socketPath)
 
-	case msg.PlayerDone:
+	case player.DoneMsg:
 		if message.Err != nil {
 			m.errorMsg = message.Err.Error()
+		}
+		item := m.playingItem
+		m.playingItem = nil
+		if item != nil && m.client != nil {
+			client := m.client
+			itemID := item.Id
+			return m, func() tea.Msg {
+				updated, err := client.GetItem(context.Background(), itemID)
+				if err != nil {
+					return nil
+				}
+				return msg.PlayedToggled{ItemID: itemID, Played: updated.UserData.Played}
+			}
 		}
 		return m, nil
 

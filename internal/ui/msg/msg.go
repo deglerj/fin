@@ -46,7 +46,6 @@ type CloseOverlay struct{}
 
 // Playback
 type PlayItem struct{ Item api.Item }
-type PlayerDone struct{ Err error }
 
 // Played status
 type PlayedToggled struct {
