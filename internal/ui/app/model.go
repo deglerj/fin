@@ -50,12 +50,13 @@ type Model struct {
 	details details.Model
 	search  search.Model
 
-	overlay        overlayKind
-	selectedItemID string
-	playingItem    *api.Item
-	errorMsg       string
-	width          int
-	height         int
+	overlay            overlayKind
+	selectedItemID     string
+	playingItem        *api.Item
+	playingChapterFile string
+	errorMsg           string
+	width              int
+	height             int
 }
 
 func New(cfg *config.Config, client *api.Client, imageCapable bool) Model {
@@ -71,7 +72,8 @@ func New(cfg *config.Config, client *api.Client, imageCapable bool) Model {
 	}
 }
 
-func (m Model) Screen() ScreenKind { return m.screen }
+func (m Model) Screen() ScreenKind         { return m.screen }
+func (m Model) PlayingChapterFile() string { return m.playingChapterFile }
 
 func (m Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{m.login.Init(), m.browser.Init()}
@@ -180,6 +182,26 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return msg.ItemReadyToPlay{Item: fetched}
 		}
+
+	case msg.ItemReadyToPlay:
+		item := message.Item
+		if m.cfg == nil || m.client == nil {
+			return m, nil
+		}
+		url := m.client.StreamURL(item)
+		startSec := item.UserData.PlaybackPositionTicks / 10_000_000
+		socketPath := player.SocketPath()
+		client := m.client
+		go player.Monitor(socketPath, client, item, startSec)
+
+		extraArgs := append([]string{}, m.cfg.Player.ExtraArgs...)
+		if isVideoItem(item) && len(item.Chapters) > 0 {
+			if path, err := WriteChapterFile(item.Chapters); err == nil {
+				m.playingChapterFile = path
+				extraArgs = append(extraArgs, "--chapter-list="+path)
+			}
+		}
+		return m, player.Play(m.cfg.Player.Command, extraArgs, url, item.MediaTitle(), startSec, socketPath)
 
 	case player.DoneMsg:
 		if message.Err != nil {
@@ -422,6 +444,10 @@ func asSearchModel(m tea.Model, cmd tea.Cmd) (search.Model, tea.Cmd) {
 		panic(fmt.Sprintf("expected search.Model, got %T", m))
 	}
 	return sm, cmd
+}
+
+func isVideoItem(item api.Item) bool {
+	return item.Type == "Movie" || item.Type == "Episode"
 }
 
 func WriteChapterFile(chapters []api.ChapterInfo) (string, error) {

@@ -527,6 +527,59 @@ func TestPlayItemFetchFailsFallsBackToOriginal(t *testing.T) {
 	require.Empty(t, ready.Item.Chapters)
 }
 
+func TestItemReadyToPlayCreatesChapterFileForVideo(t *testing.T) {
+	cfg := &config.Config{Player: config.PlayerConfig{Command: "mpv"}}
+	m := newAppWithCfgAndMockServer(t, cfg, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	item := api.Item{
+		Id:   "movie1",
+		Type: "Movie",
+		Name: "Dune",
+		Chapters: []api.ChapterInfo{
+			{StartPositionTicks: 0, Name: "Intro"},
+			{StartPositionTicks: 300_000_000, Name: "Act 1"},
+		},
+	}
+	m2, _ := m.Update(msg.ItemReadyToPlay{Item: item})
+	chapterFile := m2.(app.Model).PlayingChapterFile()
+	require.NotEmpty(t, chapterFile, "chapter file path should be set for video with chapters")
+
+	_, err := os.Stat(chapterFile)
+	require.NoError(t, err, "chapter file should exist on disk")
+	t.Cleanup(func() { os.Remove(chapterFile) })
+}
+
+func TestItemReadyToPlayNoChapterFileWhenNoChapters(t *testing.T) {
+	cfg := &config.Config{Player: config.PlayerConfig{Command: "mpv"}}
+	m := newAppWithCfgAndMockServer(t, cfg, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	item := api.Item{Id: "movie1", Type: "Movie", Name: "Dune"}
+	m2, _ := m.Update(msg.ItemReadyToPlay{Item: item})
+	require.Empty(t, m2.(app.Model).PlayingChapterFile(), "no chapter file expected when item has no chapters")
+}
+
+func TestItemReadyToPlayNoChapterFileForAudio(t *testing.T) {
+	cfg := &config.Config{Player: config.PlayerConfig{Command: "mpv"}}
+	m := newAppWithCfgAndMockServer(t, cfg, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	item := api.Item{
+		Id:   "audio1",
+		Type: "Audio",
+		Name: "Track 1",
+		Chapters: []api.ChapterInfo{
+			{StartPositionTicks: 0, Name: "Part 1"},
+		},
+	}
+	m2, _ := m.Update(msg.ItemReadyToPlay{Item: item})
+	require.Empty(t, m2.(app.Model).PlayingChapterFile(), "no chapter file expected for audio items")
+}
+
 func TestWriteChapterFile(t *testing.T) {
 	chapters := []api.ChapterInfo{
 		{StartPositionTicks: 0, Name: "Intro"},
