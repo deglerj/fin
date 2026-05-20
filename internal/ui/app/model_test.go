@@ -609,3 +609,45 @@ func TestWriteChapterFile(t *testing.T) {
 	require.Equal(t, "Climax", result.Chapters[2].Title)
 	require.InDelta(t, 60.0, result.Chapters[2].Time, 0.001)
 }
+
+func TestDoneMsgDeletesChapterFile(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/Items/movie1") {
+			require.NoError(t, json.NewEncoder(w).Encode(api.Item{
+				Id:       "movie1",
+				Type:     "Movie",
+				UserData: api.UserData{Played: false},
+			}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	})
+	cfg := &config.Config{Player: config.PlayerConfig{Command: "mpv"}}
+	m := newAppWithCfgAndMockServer(t, cfg, handler)
+
+	// PlayItem sets m.playingItem
+	m2, _ := m.Update(msg.PlayItem{Item: api.Item{Id: "movie1", Type: "Movie", Name: "Dune"}})
+
+	// ItemReadyToPlay writes chapter file and sets m.playingChapterFile
+	itemWithChapters := api.Item{
+		Id:   "movie1",
+		Type: "Movie",
+		Name: "Dune",
+		Chapters: []api.ChapterInfo{
+			{StartPositionTicks: 0, Name: "Intro"},
+		},
+	}
+	m3, _ := m2.(app.Model).Update(msg.ItemReadyToPlay{Item: itemWithChapters})
+	chapterFile := m3.(app.Model).PlayingChapterFile()
+	require.NotEmpty(t, chapterFile)
+
+	_, statErr := os.Stat(chapterFile)
+	require.NoError(t, statErr, "chapter file should exist before DoneMsg")
+
+	// DoneMsg should delete the chapter file and clear the field
+	m4, _ := m3.(app.Model).Update(player.DoneMsg{})
+	require.Empty(t, m4.(app.Model).PlayingChapterFile())
+
+	_, statErr = os.Stat(chapterFile)
+	require.True(t, os.IsNotExist(statErr), "chapter file should be deleted after DoneMsg")
+}

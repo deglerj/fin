@@ -204,6 +204,10 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, player.Play(m.cfg.Player.Command, extraArgs, url, item.MediaTitle(), startSec, socketPath)
 
 	case player.DoneMsg:
+		if m.playingChapterFile != "" {
+			_ = os.Remove(m.playingChapterFile)
+			m.playingChapterFile = ""
+		}
 		if message.Err != nil {
 			m.errorMsg = message.Err.Error()
 		}
