@@ -548,7 +548,7 @@ func TestItemReadyToPlayCreatesChapterFileForVideo(t *testing.T) {
 
 	_, err := os.Stat(chapterFile)
 	require.NoError(t, err, "chapter file should exist on disk")
-	t.Cleanup(func() { os.Remove(chapterFile) })
+	t.Cleanup(func() { _ = os.Remove(chapterFile) })
 }
 
 func TestItemReadyToPlayNoChapterFileWhenNoChapters(t *testing.T) {
@@ -589,7 +589,7 @@ func TestWriteChapterFile(t *testing.T) {
 	path, err := app.WriteChapterFile(chapters)
 	require.NoError(t, err)
 	require.NotEmpty(t, path)
-	t.Cleanup(func() { os.Remove(path) })
+	t.Cleanup(func() { _ = os.Remove(path) })
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)

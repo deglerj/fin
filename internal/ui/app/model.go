@@ -473,9 +473,13 @@ func WriteChapterFile(chapters []api.ChapterInfo) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
 	if err := json.NewEncoder(f).Encode(list); err != nil {
-		os.Remove(f.Name())
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(f.Name())
 		return "", err
 	}
 	return f.Name(), nil
