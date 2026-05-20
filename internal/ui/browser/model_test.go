@@ -45,11 +45,63 @@ func TestPopLevel(t *testing.T) {
 	require.Equal(t, 1, bm.Depth())
 }
 
-func TestRandomSelection(t *testing.T) {
+func TestRandomSelectionOnLeaves(t *testing.T) {
 	m := browser.New(nil, 80, 24)
-	m2, _ := m.Update(msg.PushLevel{Items: makeItems("A", "B", "C", "D", "E"), LevelName: "Movies"})
+	// depth 1: library level
+	m2, _ := m.Update(msg.PushLevel{LevelName: "Libraries", Items: []api.Item{{Id: "lib1", Name: "Movies"}}})
+	// depth 2: movie leaf items
+	m3, _ := m2.(browser.Model).Update(msg.PushLevel{ParentID: "lib1", LevelName: "Movies", Items: makeItems("A", "B", "C", "D", "E")})
+	_, cmd := m3.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	require.NotNil(t, cmd, "expected a command from random key on leaf items")
+}
+
+func TestRandomIgnoredAtDepth1(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeItems("A", "B"), LevelName: "Libraries"})
 	_, cmd := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
-	require.NotNil(t, cmd, "expected a command from random key")
+	require.Nil(t, cmd, "r at depth 1 should be a noop")
+}
+
+func TestRandomOnNonLeavesNilClientReturnsError(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	// depth 1: library level
+	m2, _ := m.Update(msg.PushLevel{LevelName: "Libraries", Items: []api.Item{{Id: "lib1", Name: "TV Shows"}}})
+	// depth 2: series items (non-leaves)
+	series := []api.Item{{Id: "s1", Name: "Breaking Bad", Type: "Series"}}
+	m3, _ := m2.(browser.Model).Update(msg.PushLevel{ParentID: "lib1", LevelName: "TV Shows", Items: series})
+	_, cmd := m3.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	require.NotNil(t, cmd, "r on non-leaf level should return a fetch cmd")
+	result := cmd()
+	_, isErr := result.(msg.AppError)
+	require.True(t, isErr, "nil client should produce AppError, got %T", result)
+}
+
+func TestRandomStatusBarHiddenAtDepth1(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeItems("A"), LevelName: "Libraries"})
+	view := m2.(browser.Model).View()
+	require.NotContains(t, view, "r random", "status bar should hide r random hint at depth 1")
+}
+
+func TestRandomOnVirtualSectionNonLeavesNilClientReturnsError(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{LevelName: "Libraries", Items: []api.Item{{Id: "lib1", Name: "Home"}}})
+	// virtual section with non-leaf items (e.g. favorited Series)
+	series := []api.Item{{Id: "s1", Name: "Breaking Bad", Type: "Series"}}
+	m3, _ := m2.(browser.Model).Update(msg.PushLevel{ParentID: "__favorites__", LevelName: "Favorites", Items: series})
+	_, cmd := m3.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	require.NotNil(t, cmd, "r on virtual section with non-leaves should return a cmd")
+	result := cmd()
+	_, isErr := result.(msg.AppError)
+	require.True(t, isErr, "nil client should produce AppError, got %T", result)
+}
+
+func TestRandomStatusBarShownAtDepth2(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{LevelName: "Libraries", Items: []api.Item{{Id: "lib1", Name: "Movies"}}})
+	m3, _ := m2.(browser.Model).Update(msg.PushLevel{ParentID: "lib1", LevelName: "Movies", Items: makeItems("A")})
+	view := m3.(browser.Model).View()
+	require.Contains(t, view, "r random", "status bar should show r random hint at depth 2+")
 }
 
 func TestLoadingSpinnerActivatesOnDrillIn(t *testing.T) {

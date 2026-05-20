@@ -206,12 +206,38 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		case message.String() == "/":
 			return m, func() tea.Msg { return msg.OpenSearch{} }
 		case message.String() == "r":
+			if len(m.stack) <= 1 {
+				return m, nil
+			}
 			items := top.items
 			if len(items) == 0 {
 				return m, nil
 			}
-			item := items[rand.Intn(len(items))]
-			return m, func() tea.Msg { return msg.PlayItem{Item: item} }
+			var leaves []api.Item
+			for _, it := range items {
+				if isLeaf(it) {
+					leaves = append(leaves, it)
+				}
+			}
+			if len(leaves) > 0 {
+				item := leaves[rand.Intn(len(leaves))]
+				return m, func() tea.Msg { return msg.PlayItem{Item: item} }
+			}
+			if m.client == nil {
+				return m, func() tea.Msg { return msg.AppError{Err: fmt.Errorf("no client configured")} }
+			}
+			client := m.client
+			parentID := top.parentID
+			if strings.HasPrefix(parentID, "__") {
+				parentID = items[rand.Intn(len(items))].Id
+			}
+			return m, func() tea.Msg {
+				item, err := client.GetRandomLeaf(context.Background(), parentID)
+				if err != nil {
+					return msg.AppError{Err: err}
+				}
+				return msg.PlayItem{Item: item}
+			}
 		case key.Matches(message, keys.Default.MarkPlayed):
 			item, isReal := top.itemAt(top.cursor)
 			if !isReal || !isLeaf(item) {
@@ -345,7 +371,10 @@ func (m Model) View() string {
 		revalidating = " [~]"
 	}
 	line1 := count + revalidating + "  ↑↓ navigate · enter open · ⌫/esc/← back"
-	line2 := "/ search · r random · m mark · q quit"
+	line2 := "/ search · m mark · q quit"
+	if len(m.stack) > 1 {
+		line2 = "/ search · r random · m mark · q quit"
+	}
 	sb.WriteString(styles.StatusBar.Width(m.width).Render(line1 + "\n" + line2))
 	return sb.String()
 }

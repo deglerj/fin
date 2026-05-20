@@ -299,3 +299,30 @@ func TestReportPlaybackHTTPError(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "500")
 }
+
+func TestGetRandomLeaf(t *testing.T) {
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/Users/uid1/Items", r.URL.Path)
+		assert.Equal(t, "series1", r.URL.Query().Get("ParentId"))
+		assert.Equal(t, "true", r.URL.Query().Get("Recursive"))
+		assert.Equal(t, "Random", r.URL.Query().Get("SortBy"))
+		assert.Equal(t, "1", r.URL.Query().Get("Limit"))
+		assert.Equal(t, "Movie,Episode,Audio", r.URL.Query().Get("IncludeItemTypes"))
+		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{
+			Items: []api.Item{{Id: "ep42", Name: "The One Where It Works", Type: "Episode"}},
+		}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	item, err := client.GetRandomLeaf(context.Background(), "series1")
+	require.NoError(t, err)
+	require.Equal(t, "ep42", item.Id)
+}
+
+func TestGetRandomLeafEmptyResponseReturnsError(t *testing.T) {
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	_, err := client.GetRandomLeaf(context.Background(), "series1")
+	require.Error(t, err)
+}

@@ -107,6 +107,19 @@ func (c *Client) GetFavorites(ctx context.Context) ([]Item, error) {
 	return resp.Items, err
 }
 
+func (c *Client) GetRandomLeaf(ctx context.Context, parentID string) (Item, error) {
+	q := fmt.Sprintf("/Users/%s/Items?ParentId=%s&Recursive=true&IncludeItemTypes=Movie,Episode,Audio&SortBy=Random&Limit=1&Fields=Overview,People,CommunityRating,ProductionYear",
+		c.userID, parentID)
+	var resp ItemsResponse
+	if err := c.get(ctx, q, &resp); err != nil {
+		return Item{}, err
+	}
+	if len(resp.Items) == 0 {
+		return Item{}, fmt.Errorf("no playable items found")
+	}
+	return resp.Items[0], nil
+}
+
 func (c *Client) StreamURL(item Item) string {
 	if item.Type == "Audio" || item.MediaType == "Audio" {
 		return fmt.Sprintf("%s/Audio/%s/stream?api_key=%s&static=true", c.baseURL, item.Id, c.token)

@@ -11,7 +11,7 @@ const helpText = `
   ⌫ / ← / Esc  Back / close overlay
   i           Details overlay
   /           Search
-  r           Random from current list
+  r           Play random item (recurses into series/seasons)
   ?           Toggle this help
   q           Quit
 `
