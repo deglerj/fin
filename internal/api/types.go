@@ -29,6 +29,7 @@ type Item struct {
 	People            []Person          `json:"People"`
 	UserData          UserData          `json:"UserData"`
 	ImageTags         map[string]string `json:"ImageTags"`
+	Chapters          []ChapterInfo     `json:"Chapters"`
 }
 
 func (item Item) MediaTitle() string {
@@ -47,6 +48,11 @@ type Person struct {
 type UserData struct {
 	Played                bool  `json:"Played"`
 	PlaybackPositionTicks int64 `json:"PlaybackPositionTicks"`
+}
+
+type ChapterInfo struct {
+	StartPositionTicks int64  `json:"StartPositionTicks"`
+	Name               string `json:"Name"`
 }
 
 type ItemsResponse struct {

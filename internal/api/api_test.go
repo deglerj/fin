@@ -326,3 +326,25 @@ func TestGetRandomLeafEmptyResponseReturnsError(t *testing.T) {
 	_, err := client.GetRandomLeaf(context.Background(), "series1")
 	require.Error(t, err)
 }
+
+func TestGetItemUnmarshalsChapters(t *testing.T) {
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.NoError(t, json.NewEncoder(w).Encode(api.Item{
+			Id:   "m1",
+			Name: "Dune",
+			Type: "Movie",
+			Chapters: []api.ChapterInfo{
+				{StartPositionTicks: 0, Name: "Intro"},
+				{StartPositionTicks: 50_000_000, Name: "Chapter 1"},
+			},
+		}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	item, err := client.GetItem(context.Background(), "m1")
+	require.NoError(t, err)
+	require.Len(t, item.Chapters, 2)
+	require.Equal(t, "Intro", item.Chapters[0].Name)
+	require.Equal(t, int64(0), item.Chapters[0].StartPositionTicks)
+	require.Equal(t, "Chapter 1", item.Chapters[1].Name)
+	require.Equal(t, int64(50_000_000), item.Chapters[1].StartPositionTicks)
+}
