@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -466,4 +467,34 @@ func TestPlayedToggledRefreshesVirtualSectionFavorites(t *testing.T) {
 		}
 	}
 	require.True(t, found, "expected RefreshLevel{ParentID: __favorites__} in batch cmds")
+}
+
+func TestWriteChapterFile(t *testing.T) {
+	chapters := []api.ChapterInfo{
+		{StartPositionTicks: 0, Name: "Intro"},
+		{StartPositionTicks: 100_000_000, Name: "Act 1"},  // 10 seconds
+		{StartPositionTicks: 600_000_000, Name: "Climax"}, // 60 seconds
+	}
+	path, err := app.WriteChapterFile(chapters)
+	require.NoError(t, err)
+	require.NotEmpty(t, path)
+	t.Cleanup(func() { os.Remove(path) })
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	var result struct {
+		Chapters []struct {
+			Title string  `json:"title"`
+			Time  float64 `json:"time"`
+		} `json:"chapters"`
+	}
+	require.NoError(t, json.Unmarshal(data, &result))
+	require.Len(t, result.Chapters, 3)
+	require.Equal(t, "Intro", result.Chapters[0].Title)
+	require.InDelta(t, 0.0, result.Chapters[0].Time, 0.001)
+	require.Equal(t, "Act 1", result.Chapters[1].Title)
+	require.InDelta(t, 10.0, result.Chapters[1].Time, 0.001)
+	require.Equal(t, "Climax", result.Chapters[2].Title)
+	require.InDelta(t, 60.0, result.Chapters[2].Time, 0.001)
 }

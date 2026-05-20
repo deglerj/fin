@@ -3,7 +3,9 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -417,4 +419,31 @@ func asSearchModel(m tea.Model, cmd tea.Cmd) (search.Model, tea.Cmd) {
 		panic(fmt.Sprintf("expected search.Model, got %T", m))
 	}
 	return sm, cmd
+}
+
+func WriteChapterFile(chapters []api.ChapterInfo) (string, error) {
+	type mpvChapter struct {
+		Title string  `json:"title"`
+		Time  float64 `json:"time"`
+	}
+	type mpvChapterList struct {
+		Chapters []mpvChapter `json:"chapters"`
+	}
+	list := mpvChapterList{Chapters: make([]mpvChapter, len(chapters))}
+	for i, c := range chapters {
+		list.Chapters[i] = mpvChapter{
+			Title: c.Name,
+			Time:  float64(c.StartPositionTicks) / 10_000_000,
+		}
+	}
+	f, err := os.CreateTemp("", "fin-chapters-*.json")
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	if err := json.NewEncoder(f).Encode(list); err != nil {
+		os.Remove(f.Name())
+		return "", err
+	}
+	return f.Name(), nil
 }
