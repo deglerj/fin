@@ -171,12 +171,15 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if m.cfg == nil || m.client == nil {
 			return m, nil
 		}
-		url := m.client.StreamURL(item)
-		startSec := item.UserData.PlaybackPositionTicks / 10_000_000
-		socketPath := player.SocketPath()
 		client := m.client
-		go player.Monitor(socketPath, client, item, startSec)
-		return m, player.Play(m.cfg.Player.Command, m.cfg.Player.ExtraArgs, url, item.MediaTitle(), startSec, socketPath)
+		originalItem := item
+		return m, func() tea.Msg {
+			fetched, err := client.GetItem(context.Background(), originalItem.Id)
+			if err != nil {
+				return msg.ItemReadyToPlay{Item: originalItem}
+			}
+			return msg.ItemReadyToPlay{Item: fetched}
+		}
 
 	case player.DoneMsg:
 		if message.Err != nil {

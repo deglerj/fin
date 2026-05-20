@@ -12,6 +12,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/config"
 	"github.com/deglerj/fin/internal/player"
 	"github.com/deglerj/fin/internal/ui/app"
 	"github.com/deglerj/fin/internal/ui/msg"
@@ -467,6 +468,63 @@ func TestPlayedToggledRefreshesVirtualSectionFavorites(t *testing.T) {
 		}
 	}
 	require.True(t, found, "expected RefreshLevel{ParentID: __favorites__} in batch cmds")
+}
+
+func newAppWithCfgAndMockServer(t *testing.T, cfg *config.Config, handler http.Handler) app.Model {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	client := api.New(srv.URL)
+	client.SetAuth("u1", "tok")
+	return app.New(cfg, client, false)
+}
+
+func TestPlayItemFetchesItemBeforePlay(t *testing.T) {
+	var fetched bool
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/Items/movie1") {
+			fetched = true
+			require.NoError(t, json.NewEncoder(w).Encode(api.Item{
+				Id:   "movie1",
+				Type: "Movie",
+				Name: "Dune",
+				Chapters: []api.ChapterInfo{
+					{StartPositionTicks: 0, Name: "Intro"},
+				},
+			}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	})
+	cfg := &config.Config{Player: config.PlayerConfig{Command: "mpv"}}
+	m := newAppWithCfgAndMockServer(t, cfg, handler)
+
+	_, cmd := m.Update(msg.PlayItem{Item: api.Item{Id: "movie1", Type: "Movie", Name: "Dune"}})
+	require.NotNil(t, cmd)
+
+	result := cmd()
+	ready, ok := result.(msg.ItemReadyToPlay)
+	require.True(t, ok, "expected ItemReadyToPlay, got %T", result)
+	require.Equal(t, "movie1", ready.Item.Id)
+	require.True(t, fetched, "GetItem was not called")
+	require.Len(t, ready.Item.Chapters, 1)
+}
+
+func TestPlayItemFetchFailsFallsBackToOriginal(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	cfg := &config.Config{Player: config.PlayerConfig{Command: "mpv"}}
+	m := newAppWithCfgAndMockServer(t, cfg, handler)
+
+	_, cmd := m.Update(msg.PlayItem{Item: api.Item{Id: "movie1", Type: "Movie", Name: "Dune"}})
+	require.NotNil(t, cmd)
+
+	result := cmd()
+	ready, ok := result.(msg.ItemReadyToPlay)
+	require.True(t, ok, "expected ItemReadyToPlay fallback on error, got %T", result)
+	require.Equal(t, "movie1", ready.Item.Id)
+	require.Empty(t, ready.Item.Chapters)
 }
 
 func TestWriteChapterFile(t *testing.T) {
