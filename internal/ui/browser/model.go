@@ -161,6 +161,32 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.stack[len(m.stack)-1] = top
+		case key.Matches(message, keys.Default.PageDown):
+			if top.displayLen() == 0 {
+				break
+			}
+			newCursor := top.cursor + m.visibleHeight()
+			if newCursor >= top.displayLen() {
+				newCursor = top.displayLen() - 1
+			}
+			top.cursor = newCursor
+			if top.cursor >= top.offset+m.visibleHeight() {
+				top.offset = top.cursor - m.visibleHeight() + 1
+			}
+			m.stack[len(m.stack)-1] = top
+		case key.Matches(message, keys.Default.PageUp):
+			if top.displayLen() == 0 {
+				break
+			}
+			newCursor := top.cursor - m.visibleHeight()
+			if newCursor < 0 {
+				newCursor = 0
+			}
+			top.cursor = newCursor
+			if top.cursor < top.offset {
+				top.offset = top.cursor
+			}
+			m.stack[len(m.stack)-1] = top
 		case message.String() == "enter" || message.String() == "right":
 			item, isReal := top.itemAt(top.cursor)
 			if !isReal {
