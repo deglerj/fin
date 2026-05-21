@@ -172,6 +172,9 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			top.cursor = newCursor
 			if top.cursor >= top.offset+m.visibleHeight() {
 				top.offset = top.cursor - m.visibleHeight() + 1
+				if top.offset < 0 {
+					top.offset = 0
+				}
 			}
 			m.stack[len(m.stack)-1] = top
 		case key.Matches(message, keys.Default.PageUp):
