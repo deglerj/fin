@@ -6,6 +6,8 @@ import "github.com/charmbracelet/bubbles/key"
 type Bindings struct {
 	Up         key.Binding
 	Down       key.Binding
+	PageUp     key.Binding
+	PageDown   key.Binding
 	Right      key.Binding
 	Left       key.Binding
 	Play       key.Binding
@@ -20,6 +22,8 @@ type Bindings struct {
 var Default = Bindings{
 	Up:         key.NewBinding(key.WithKeys("up")),
 	Down:       key.NewBinding(key.WithKeys("down")),
+	PageUp:     key.NewBinding(key.WithKeys("pgup")),
+	PageDown:   key.NewBinding(key.WithKeys("pgdown")),
 	Right:      key.NewBinding(key.WithKeys("right", "enter")),
 	Left:       key.NewBinding(key.WithKeys("left", "esc")),
 	Play:       key.NewBinding(key.WithKeys("enter")),
