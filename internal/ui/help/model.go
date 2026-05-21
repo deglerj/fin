@@ -7,6 +7,7 @@ import (
 
 const helpText = `
   ↑ / ↓       Navigate list
+  PgUp/PgDn   Page through list
   → / Enter   Open / drill in / play
   ⌫ / ← / Esc  Back / close overlay
   i           Details overlay
