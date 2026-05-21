@@ -294,3 +294,44 @@ func TestCurrentLevelParentIDReturnsTopOfStack(t *testing.T) {
 	m3, _ := m2.(browser.Model).Update(msg.PushLevel{ParentID: "season1", LevelName: "Season 1", Items: makeItems("Ep 1")})
 	require.Equal(t, "season1", m3.(browser.Model).CurrentLevelParentID())
 }
+
+func makeNItems(n int) []api.Item {
+	items := make([]api.Item, n)
+	for i := range items {
+		items[i] = api.Item{Id: fmt.Sprintf("id%d", i), Name: fmt.Sprintf("item%02d", i), Type: "Movie"}
+	}
+	return items
+}
+
+// height=24 → visibleHeight=20
+func TestPageDownMovesFullPage(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeNItems(30), LevelName: "Movies"})
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	require.Equal(t, "item20", m3.(browser.Model).SelectedItem().Name)
+}
+
+func TestPageDownClampsAtEnd(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeNItems(30), LevelName: "Movies"})
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m4, _ := m3.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	require.Equal(t, "item29", m4.(browser.Model).SelectedItem().Name)
+}
+
+func TestPageUpMovesFullPage(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeNItems(30), LevelName: "Movies"})
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	// cursor now at 20; page up should land at 0
+	m4, _ := m3.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	require.Equal(t, "item00", m4.(browser.Model).SelectedItem().Name)
+}
+
+func TestPageUpClampsAtTop(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeNItems(30), LevelName: "Movies"})
+	// already at top; page up must stay at item00
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	require.Equal(t, "item00", m3.(browser.Model).SelectedItem().Name)
+}
