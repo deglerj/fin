@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -230,6 +231,13 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m, cmd := m.updateBrowser(message)
 		return m, tea.Batch(cmd, m.refreshCurrentLevel())
 
+	case msg.TokenInvalid:
+		m.screen = ScreenLogin
+		m.login = login.New()
+		m.client = nil
+		m.errorMsg = "Session expired, please log in again"
+		return m, nil
+
 	case msg.AppError:
 		m.errorMsg = message.Err.Error()
 		m.browser, _ = asBrowserModel(m.browser.Update(message))
@@ -251,7 +259,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg {
 				items, err := fetchVirtualItems(c, id)
 				if err != nil {
-					return msg.AppError{Err: err}
+					return apiErr(err)
 				}
 				return msg.PushLevel{Items: items, LevelName: lname, ParentID: id}
 			}
@@ -351,6 +359,13 @@ func (m Model) View() string {
 	return sb.String()
 }
 
+func apiErr(err error) tea.Msg {
+	if errors.Is(err, api.ErrUnauthorized) {
+		return msg.TokenInvalid{}
+	}
+	return msg.AppError{Err: err}
+}
+
 func (m Model) fetchLibraries() tea.Cmd {
 	c := m.client
 	if c == nil {
@@ -359,7 +374,7 @@ func (m Model) fetchLibraries() tea.Cmd {
 	return func() tea.Msg {
 		libs, err := c.GetLibraries(context.Background())
 		if err != nil {
-			return msg.AppError{Err: err}
+			return apiErr(err)
 		}
 		return msg.LibrariesLoaded{Libraries: libs}
 	}
@@ -376,7 +391,7 @@ func (m Model) refreshCurrentLevel() tea.Cmd {
 		return func() tea.Msg {
 			items, err := fetchVirtualItems(c, parentID)
 			if err != nil {
-				return msg.AppError{Err: err}
+				return apiErr(err)
 			}
 			return msg.RefreshLevel{ParentID: parentID, Items: items}
 		}
@@ -384,7 +399,7 @@ func (m Model) refreshCurrentLevel() tea.Cmd {
 		return func() tea.Msg {
 			items, err := c.GetItems(context.Background(), parentID, nil)
 			if err != nil {
-				return msg.AppError{Err: err}
+				return apiErr(err)
 			}
 			return msg.RefreshLevel{ParentID: parentID, Items: items}
 		}

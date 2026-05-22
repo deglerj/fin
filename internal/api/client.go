@@ -4,12 +4,15 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 )
+
+var ErrUnauthorized = errors.New("jellyfin: unauthorized")
 
 const clientHeader = `MediaBrowser Client="fin", Device="terminal", DeviceId="fin-cli", Version="1.0.0"`
 
@@ -46,6 +49,9 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == 401 {
+		return ErrUnauthorized
+	}
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("jellyfin: HTTP %d for %s", resp.StatusCode, path)
 	}
@@ -66,6 +72,9 @@ func (c *Client) getRaw(ctx context.Context, path string) ([]byte, error) {
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == 401 {
+		return nil, ErrUnauthorized
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("jellyfin: HTTP %d", resp.StatusCode)
 	}
@@ -84,6 +93,9 @@ func (c *Client) post(ctx context.Context, path string, body io.Reader, out any)
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == 401 {
+		return ErrUnauthorized
+	}
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("jellyfin: HTTP %d for %s", resp.StatusCode, path)
 	}
@@ -104,6 +116,9 @@ func (c *Client) doNoResponse(ctx context.Context, method, path string) error {
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == 401 {
+		return ErrUnauthorized
+	}
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("jellyfin: HTTP %d for %s", resp.StatusCode, path)
 	}
@@ -125,6 +140,9 @@ func (c *Client) postNoResponse(ctx context.Context, path string, body io.Reader
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == 401 {
+		return ErrUnauthorized
+	}
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("jellyfin: HTTP %d for %s", resp.StatusCode, path)
 	}

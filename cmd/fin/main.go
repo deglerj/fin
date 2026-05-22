@@ -2,7 +2,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -58,17 +57,13 @@ func main() {
 	if err == nil {
 		client := api.New(creds.ServerURL)
 		client.SetAuth(creds.UserID, creds.AccessToken)
-		if err := client.ValidateToken(context.Background()); err == nil {
-			m := app.New(cfg, client, imageCapable)
-			m2, _ := m.Update(msg.LoginSuccess{
-				ServerURL:   creds.ServerURL,
-				UserID:      creds.UserID,
-				AccessToken: creds.AccessToken,
-			})
-			initialModel = m2
-		} else {
-			initialModel = app.New(cfg, nil, imageCapable)
-		}
+		m := app.New(cfg, client, imageCapable)
+		m2, _ := m.Update(msg.LoginSuccess{
+			ServerURL:   creds.ServerURL,
+			UserID:      creds.UserID,
+			AccessToken: creds.AccessToken,
+		})
+		initialModel = m2
 	} else {
 		initialModel = app.New(cfg, nil, imageCapable)
 	}
