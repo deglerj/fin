@@ -260,7 +260,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
-		if message.String() == "q" || message.String() == "ctrl+c" {
+		if message.String() == "ctrl+c" || (message.String() == "q" && m.screen != ScreenLogin) {
 			return m, tea.Quit
 		}
 		if message.String() == "?" && m.overlay == overlayNone {
