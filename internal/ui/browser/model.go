@@ -151,6 +151,12 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				if top.cursor < top.offset {
 					top.offset = top.cursor
 				}
+			} else {
+				top.cursor = top.displayLen() - 1
+				top.offset = top.cursor - m.visibleHeight() + 1
+				if top.offset < 0 {
+					top.offset = 0
+				}
 			}
 			m.stack[len(m.stack)-1] = top
 		case key.Matches(message, keys.Default.Down):
@@ -159,6 +165,9 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				if top.cursor >= top.offset+m.visibleHeight() {
 					top.offset++
 				}
+			} else {
+				top.cursor = 0
+				top.offset = 0
 			}
 			m.stack[len(m.stack)-1] = top
 		case key.Matches(message, keys.Default.PageDown):

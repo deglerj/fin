@@ -335,3 +335,43 @@ func TestPageUpClampsAtTop(t *testing.T) {
 	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyPgUp})
 	require.Equal(t, "item00", m3.(browser.Model).SelectedItem().Name)
 }
+
+func TestUpWrapsToLastItem(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeItems("A", "B", "C"), LevelName: "Movies"})
+	// cursor starts at 0; Up should wrap to last item C
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyUp})
+	require.Equal(t, "C", m3.(browser.Model).SelectedItem().Name)
+}
+
+func TestDownWrapsToFirstItem(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeItems("A", "B", "C"), LevelName: "Movies"})
+	// navigate to last item C
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyDown})
+	m4, _ := m3.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyDown})
+	require.Equal(t, "C", m4.(browser.Model).SelectedItem().Name)
+	// Down on last item should wrap to first item A
+	m5, _ := m4.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyDown})
+	require.Equal(t, "A", m5.(browser.Model).SelectedItem().Name)
+}
+
+// height=24 → visibleHeight=20; 30 items → last item index=29, offset should be 10
+func TestUpWrapAdjustsOffsetForLongList(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeNItems(30), LevelName: "Movies"})
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyUp})
+	require.Equal(t, "item29", m3.(browser.Model).SelectedItem().Name)
+}
+
+func TestDownWrapAdjustsOffsetForLongList(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeNItems(30), LevelName: "Movies"})
+	// go to last item via PgDown twice
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m4, _ := m3.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	require.Equal(t, "item29", m4.(browser.Model).SelectedItem().Name)
+	// Down on last item wraps to item00
+	m5, _ := m4.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyDown})
+	require.Equal(t, "item00", m5.(browser.Model).SelectedItem().Name)
+}
