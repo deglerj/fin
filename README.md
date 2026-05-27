@@ -2,6 +2,8 @@
 
 A terminal UI client for [Jellyfin](https://jellyfin.org), built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
+![Screenshot](screenshot.png)
+
 ## Features
 
 - Browse libraries, series, seasons, and episodes
