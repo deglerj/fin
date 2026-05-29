@@ -8,13 +8,43 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
 var ErrUnauthorized = errors.New("jellyfin: unauthorized")
 
-const clientHeader = `MediaBrowser Client="fin", Device="terminal", DeviceId="fin-cli", Version="1.0.0"`
+var (
+	_deviceID   string
+	_deviceOnce sync.Once
+)
+
+func deviceID() string {
+	_deviceOnce.Do(func() {
+		for _, p := range []string{"/etc/machine-id", "/var/lib/dbus/machine-id"} {
+			if b, err := os.ReadFile(p); err == nil {
+				id := strings.TrimSpace(string(b))
+				if len(id) > 16 {
+					id = id[:16]
+				}
+				_deviceID = "fin-" + id
+				return
+			}
+		}
+		if h, err := os.Hostname(); err == nil {
+			_deviceID = "fin-" + h
+		} else {
+			_deviceID = "fin-cli"
+		}
+	})
+	return _deviceID
+}
+
+func clientHeader() string {
+	return fmt.Sprintf(`MediaBrowser Client="fin", Device="terminal", DeviceId="%s", Version="1.0.0"`, deviceID())
+}
 
 type Client struct {
 	baseURL    string
@@ -40,7 +70,7 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("X-Emby-Authorization", clientHeader)
+	req.Header.Set("X-Emby-Authorization", clientHeader())
 	if c.token != "" {
 		req.Header.Set("X-Emby-Token", c.token)
 	}
@@ -63,7 +93,7 @@ func (c *Client) getRaw(ctx context.Context, path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("X-Emby-Authorization", clientHeader)
+	req.Header.Set("X-Emby-Authorization", clientHeader())
 	if c.token != "" {
 		req.Header.Set("X-Emby-Token", c.token)
 	}
@@ -87,7 +117,7 @@ func (c *Client) post(ctx context.Context, path string, body io.Reader, out any)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Emby-Authorization", clientHeader)
+	req.Header.Set("X-Emby-Authorization", clientHeader())
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
@@ -107,7 +137,7 @@ func (c *Client) doNoResponse(ctx context.Context, method, path string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("X-Emby-Authorization", clientHeader)
+	req.Header.Set("X-Emby-Authorization", clientHeader())
 	if c.token != "" {
 		req.Header.Set("X-Emby-Token", c.token)
 	}
@@ -131,7 +161,7 @@ func (c *Client) postNoResponse(ctx context.Context, path string, body io.Reader
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Emby-Authorization", clientHeader)
+	req.Header.Set("X-Emby-Authorization", clientHeader())
 	if c.token != "" {
 		req.Header.Set("X-Emby-Token", c.token)
 	}
