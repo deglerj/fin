@@ -3,7 +3,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -199,7 +198,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if isVideoItem(item) && len(item.Chapters) > 0 {
 			if path, err := WriteChapterFile(item.Chapters); err == nil {
 				m.playingChapterFile = path
-				extraArgs = append(extraArgs, "--chapter-list="+path)
+				extraArgs = append(extraArgs, "--chapters-file="+path)
 			}
 		}
 		return m, player.Play(m.cfg.Player.Command, extraArgs, url, item.MediaTitle(), startSec, socketPath)
@@ -470,28 +469,22 @@ func isVideoItem(item api.Item) bool {
 }
 
 func WriteChapterFile(chapters []api.ChapterInfo) (string, error) {
-	type mpvChapter struct {
-		Title string  `json:"title"`
-		Time  float64 `json:"time"`
-	}
-	type mpvChapterList struct {
-		Chapters []mpvChapter `json:"chapters"`
-	}
-	list := mpvChapterList{Chapters: make([]mpvChapter, len(chapters))}
-	for i, c := range chapters {
-		list.Chapters[i] = mpvChapter{
-			Title: c.Name,
-			Time:  float64(c.StartPositionTicks) / 10_000_000,
-		}
-	}
-	f, err := os.CreateTemp("", "fin-chapters-*.json")
+	f, err := os.CreateTemp("", "fin-chapters-*.txt")
 	if err != nil {
 		return "", err
 	}
-	if err := json.NewEncoder(f).Encode(list); err != nil {
-		_ = f.Close()
-		_ = os.Remove(f.Name())
-		return "", err
+	for i, c := range chapters {
+		ms := c.StartPositionTicks / 10_000
+		hh := ms / 3_600_000
+		mm := (ms % 3_600_000) / 60_000
+		ss := (ms % 60_000) / 1_000
+		mmm := ms % 1_000
+		n := i + 1
+		if _, err := fmt.Fprintf(f, "CHAPTER%02d=%02d:%02d:%02d.%03d\nCHAPTER%02dNAME=%s\n", n, hh, mm, ss, mmm, n, c.Name); err != nil {
+			_ = f.Close()
+			_ = os.Remove(f.Name())
+			return "", err
+		}
 	}
 	if err := f.Close(); err != nil {
 		_ = os.Remove(f.Name())

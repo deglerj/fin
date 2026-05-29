@@ -593,21 +593,14 @@ func TestWriteChapterFile(t *testing.T) {
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
+	content := string(data)
 
-	var result struct {
-		Chapters []struct {
-			Title string  `json:"title"`
-			Time  float64 `json:"time"`
-		} `json:"chapters"`
-	}
-	require.NoError(t, json.Unmarshal(data, &result))
-	require.Len(t, result.Chapters, 3)
-	require.Equal(t, "Intro", result.Chapters[0].Title)
-	require.InDelta(t, 0.0, result.Chapters[0].Time, 0.001)
-	require.Equal(t, "Act 1", result.Chapters[1].Title)
-	require.InDelta(t, 10.0, result.Chapters[1].Time, 0.001)
-	require.Equal(t, "Climax", result.Chapters[2].Title)
-	require.InDelta(t, 60.0, result.Chapters[2].Time, 0.001)
+	require.Contains(t, content, "CHAPTER01=00:00:00.000\n")
+	require.Contains(t, content, "CHAPTER01NAME=Intro\n")
+	require.Contains(t, content, "CHAPTER02=00:00:10.000\n")
+	require.Contains(t, content, "CHAPTER02NAME=Act 1\n")
+	require.Contains(t, content, "CHAPTER03=00:01:00.000\n")
+	require.Contains(t, content, "CHAPTER03NAME=Climax\n")
 }
 
 func TestDoneMsgDeletesChapterFile(t *testing.T) {
