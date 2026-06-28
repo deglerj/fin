@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -118,6 +119,15 @@ func (c *Client) GetRandomLeaf(ctx context.Context, parentID string) (Item, erro
 		return Item{}, fmt.Errorf("no playable items found")
 	}
 	return resp.Items[0], nil
+}
+
+func (c *Client) GetIntroTimestamps(ctx context.Context, itemID string) (IntroTimestamps, error) {
+	var ts IntroTimestamps
+	err := c.get(ctx, fmt.Sprintf("/Episode/%s/IntroTimestamps", itemID), &ts)
+	if errors.Is(err, ErrNotFound) {
+		return IntroTimestamps{}, nil
+	}
+	return ts, err
 }
 
 func (c *Client) StreamURL(item Item) string {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -179,6 +180,11 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			fetched, err := client.GetItem(context.Background(), originalItem.Id)
 			if err != nil {
 				return msg.ItemReadyToPlay{Item: originalItem}
+			}
+			if fetched.Type == "Episode" {
+				if ts, err := client.GetIntroTimestamps(context.Background(), fetched.Id); err == nil && ts.Valid {
+					fetched.Chapters = injectIntroChapters(fetched.Chapters, ts)
+				}
 			}
 			return msg.ItemReadyToPlay{Item: fetched}
 		}
@@ -466,6 +472,17 @@ func asSearchModel(m tea.Model, cmd tea.Cmd) (search.Model, tea.Cmd) {
 
 func isVideoItem(item api.Item) bool {
 	return item.Type == "Movie" || item.Type == "Episode"
+}
+
+func injectIntroChapters(chapters []api.ChapterInfo, ts api.IntroTimestamps) []api.ChapterInfo {
+	chapters = append(chapters,
+		api.ChapterInfo{StartPositionTicks: int64(ts.IntroStart * 10_000_000), Name: "Intro"},
+		api.ChapterInfo{StartPositionTicks: int64(ts.IntroEnd * 10_000_000), Name: "After Intro"},
+	)
+	sort.Slice(chapters, func(i, j int) bool {
+		return chapters[i].StartPositionTicks < chapters[j].StartPositionTicks
+	})
+	return chapters
 }
 
 func WriteChapterFile(chapters []api.ChapterInfo) (string, error) {

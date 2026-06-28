@@ -15,6 +15,7 @@ import (
 )
 
 var ErrUnauthorized = errors.New("jellyfin: unauthorized")
+var ErrNotFound = errors.New("jellyfin: not found")
 
 var (
 	_deviceID   string
@@ -81,6 +82,9 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == 401 {
 		return ErrUnauthorized
+	}
+	if resp.StatusCode == 404 {
+		return ErrNotFound
 	}
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("jellyfin: HTTP %d for %s", resp.StatusCode, path)

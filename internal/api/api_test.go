@@ -318,6 +318,31 @@ func TestGetRandomLeaf(t *testing.T) {
 	require.Equal(t, "ep42", item.Id)
 }
 
+func TestGetIntroTimestamps(t *testing.T) {
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/Episode/ep1/IntroTimestamps", r.URL.Path)
+		assert.NoError(t, json.NewEncoder(w).Encode(api.IntroTimestamps{
+			Valid: true, IntroStart: 12.5, IntroEnd: 80.0,
+		}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	ts, err := client.GetIntroTimestamps(context.Background(), "ep1")
+	require.NoError(t, err)
+	require.True(t, ts.Valid)
+	require.InDelta(t, 12.5, ts.IntroStart, 0.001)
+	require.InDelta(t, 80.0, ts.IntroEnd, 0.001)
+}
+
+func TestGetIntroTimestampsPluginAbsent(t *testing.T) {
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	client.SetAuth("uid1", "tok123")
+	ts, err := client.GetIntroTimestamps(context.Background(), "ep1")
+	require.NoError(t, err)
+	require.False(t, ts.Valid)
+}
+
 func TestGetRandomLeafEmptyResponseReturnsError(t *testing.T) {
 	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{}))

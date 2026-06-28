@@ -580,6 +580,58 @@ func TestItemReadyToPlayNoChapterFileForAudio(t *testing.T) {
 	require.Empty(t, m2.(app.Model).PlayingChapterFile(), "no chapter file expected for audio items")
 }
 
+func TestPlayItemInjectsIntroChaptersForEpisode(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/Items/ep1") {
+			require.NoError(t, json.NewEncoder(w).Encode(api.Item{
+				Id: "ep1", Type: "Episode", Name: "Pilot",
+				Chapters: []api.ChapterInfo{{StartPositionTicks: 0, Name: "Cold Open"}},
+			}))
+			return
+		}
+		if r.URL.Path == "/Episode/ep1/IntroTimestamps" {
+			require.NoError(t, json.NewEncoder(w).Encode(api.IntroTimestamps{
+				Valid: true, IntroStart: 10.0, IntroEnd: 90.0,
+			}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	})
+	cfg := &config.Config{Player: config.PlayerConfig{Command: "mpv"}}
+	m := newAppWithCfgAndMockServer(t, cfg, handler)
+
+	_, cmd := m.Update(msg.PlayItem{Item: api.Item{Id: "ep1", Type: "Episode", Name: "Pilot"}})
+	result := cmd()
+	ready, ok := result.(msg.ItemReadyToPlay)
+	require.True(t, ok)
+	require.Len(t, ready.Item.Chapters, 3)
+	require.Equal(t, "Cold Open", ready.Item.Chapters[0].Name)
+	require.Equal(t, "Intro", ready.Item.Chapters[1].Name)
+	require.Equal(t, int64(100_000_000), ready.Item.Chapters[1].StartPositionTicks)
+	require.Equal(t, "After Intro", ready.Item.Chapters[2].Name)
+	require.Equal(t, int64(900_000_000), ready.Item.Chapters[2].StartPositionTicks)
+}
+
+func TestPlayItemSkipsIntroTimestampsWhenPluginAbsent(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/Items/ep1") {
+			require.NoError(t, json.NewEncoder(w).Encode(api.Item{
+				Id: "ep1", Type: "Episode", Name: "Pilot",
+			}))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	})
+	cfg := &config.Config{Player: config.PlayerConfig{Command: "mpv"}}
+	m := newAppWithCfgAndMockServer(t, cfg, handler)
+
+	_, cmd := m.Update(msg.PlayItem{Item: api.Item{Id: "ep1", Type: "Episode", Name: "Pilot"}})
+	result := cmd()
+	ready, ok := result.(msg.ItemReadyToPlay)
+	require.True(t, ok)
+	require.Empty(t, ready.Item.Chapters)
+}
+
 func TestWriteChapterFile(t *testing.T) {
 	chapters := []api.ChapterInfo{
 		{StartPositionTicks: 0, Name: "Intro"},

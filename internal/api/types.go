@@ -70,6 +70,12 @@ type LibraryResponse struct {
 	Items []Library `json:"Items"`
 }
 
+type IntroTimestamps struct {
+	Valid      bool    `json:"Valid"`
+	IntroStart float64 `json:"IntroStart"`
+	IntroEnd   float64 `json:"IntroEnd"`
+}
+
 type PlaybackReport struct {
 	ItemId        string `json:"ItemId"`
 	PlaySessionId string `json:"PlaySessionId"`
