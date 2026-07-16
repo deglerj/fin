@@ -40,7 +40,10 @@ func (l level) itemAt(displayIdx int) (api.Item, bool) {
 		if displayIdx == 0 {
 			return api.Item{}, false
 		}
-		return l.items[displayIdx-1], true
+		displayIdx--
+	}
+	if displayIdx < 0 || displayIdx >= len(l.items) {
+		return api.Item{}, false
 	}
 	return l.items[displayIdx], true
 }
