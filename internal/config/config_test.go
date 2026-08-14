@@ -21,6 +21,7 @@ func TestLoadFromFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "fin"), 0755))
+	// [server] is a section fin no longer reads; loading must ignore it, not fail.
 	toml := `[server]
 url = "https://jf.example.com"
 [player]
@@ -29,7 +30,6 @@ command = "vlc"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "fin", "config.toml"), []byte(toml), 0644))
 	cfg, err := config.Load("")
 	require.NoError(t, err)
-	require.Equal(t, "https://jf.example.com", cfg.Server.URL)
 	require.Equal(t, "vlc", cfg.Player.Command)
 }
 

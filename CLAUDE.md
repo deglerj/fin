@@ -19,7 +19,7 @@ golangci-lint run           # lint (must pass before commit — CI enforces this
 
 ## Architecture
 
-bubbletea MVU throughout. The root model (`internal/ui/app`) owns a `screen` (login or browser) and an `overlay` (none, details, search, help). It delegates `Update` calls to whichever screen/overlay is active and returns the re-cast concrete type. **All Jellyfin API calls are `tea.Cmd` functions** — never call the API client synchronously inside `Update`.
+bubbletea MVU throughout. The root model (`internal/ui/app`) owns a `screen` (login or browser), an `overlay` (none, search, help) covering the left pane, and a permanent `details` pane on the right. It delegates `Update` calls to whichever screen/overlay is active and returns the re-cast concrete type. **All Jellyfin API calls are `tea.Cmd` functions** — never call the API client synchronously inside `Update`.
 
 Key design rule: shared `tea.Msg` types live in `internal/ui/msg` so that sub-models can emit messages without importing each other (prevents import cycles).
 
@@ -38,13 +38,13 @@ Key design rule: shared `tea.Msg` types live in `internal/ui/msg` so that sub-mo
 | `internal/ui/app` | Root model — screen router + overlay manager |
 | `internal/ui/login` | Login form with spinner |
 | `internal/ui/browser` | Navigation stack (library → series → season → episode) |
-| `internal/ui/details` | Details overlay with optional kitty image |
+| `internal/ui/details` | Details side pane — scrollable text plus optional kitty image |
 | `internal/ui/search` | Search overlay with 300ms debounce |
 | `internal/ui/help` | Static help overlay |
 
 ### Startup flow
 
-`main.go` loads config → probes kitty capability → tries to load saved credentials. If credentials exist and `ValidateToken` succeeds, it synthesizes a `LoginSuccess` message so the app starts directly in the browser; otherwise it shows the login screen.
+`main.go` loads config → probes kitty capability → `initialModel` tries to load saved credentials. If they decrypt, it synthesizes a `LoginSuccess{Restored: true}` so the app starts directly in the browser; the token is not validated up front, because the first API call's 401 already maps to `TokenInvalid` and returns to the login screen. A credentials file that exists but cannot be decrypted is reported to the user rather than silently ignored.
 
 ## Config
 

@@ -72,8 +72,6 @@ func New(client *api.Client, width, height int) Model {
 // levels on screen, so a flush costs at most one refetch.
 const maxCachedLevels = 64
 
-func (m Model) Depth() int { return len(m.stack) }
-
 func (m *Model) cacheLevel(parentID string, items []api.Item) {
 	if parentID == "" {
 		return
@@ -178,10 +176,6 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case msg.PopLevel:
-		m.pop()
-		return m, nil
-
 	case msg.AppError:
 		m.loading = false
 		if len(m.stack) > 0 {
@@ -257,7 +251,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				top.offset = top.cursor
 			}
 			m.stack[len(m.stack)-1] = top
-		case message.String() == "enter" || message.String() == "right":
+		case key.Matches(message, keys.Default.Open):
 			item, isReal := top.itemAt(top.cursor)
 			if !isReal {
 				m.pop()
@@ -291,11 +285,11 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.loading = true
 			return m, m.fetchChildren(ctx, item, false)
-		case message.String() == "esc" || message.String() == "left" || message.String() == "backspace":
+		case key.Matches(message, keys.Default.Back):
 			m.pop()
-		case message.String() == "/":
+		case key.Matches(message, keys.Default.Search):
 			return m, func() tea.Msg { return msg.OpenSearch{} }
-		case message.String() == "r":
+		case key.Matches(message, keys.Default.Random):
 			if len(m.stack) <= 1 {
 				return m, nil
 			}

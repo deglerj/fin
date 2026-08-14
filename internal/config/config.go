@@ -8,19 +8,8 @@ import (
 )
 
 type Config struct {
-	Server      ServerConfig      `toml:"server"`
-	UI          UIConfig          `toml:"ui"`
-	Player      PlayerConfig      `toml:"player"`
-	Keybindings KeybindingsConfig `toml:"keybindings"`
-	configDir   string
-}
-
-type ServerConfig struct {
-	URL string `toml:"url"`
-}
-
-type UIConfig struct {
-	DateFormat string `toml:"date_format"`
+	Player    PlayerConfig `toml:"player"`
+	configDir string
 }
 
 type PlayerConfig struct {
@@ -28,24 +17,9 @@ type PlayerConfig struct {
 	ExtraArgs []string `toml:"extra_args"`
 }
 
-type KeybindingsConfig struct {
-	Play    string `toml:"play"`
-	Back    string `toml:"back"`
-	Details string `toml:"details"`
-	Search  string `toml:"search"`
-	Random  string `toml:"random"`
-	Quit    string `toml:"quit"`
-	Help    string `toml:"help"`
-}
-
 func defaults() *Config {
 	return &Config{
-		UI:     UIConfig{DateFormat: "2006-01-02"},
 		Player: PlayerConfig{Command: "mpv"},
-		Keybindings: KeybindingsConfig{
-			Play: "enter", Back: "esc", Details: "i",
-			Search: "/", Random: "r", Quit: "q", Help: "?",
-		},
 	}
 }
 
@@ -64,6 +38,9 @@ func (c *Config) CredentialsPath() string {
 	return filepath.Join(c.configDir, "credentials")
 }
 
+// Load reads config.toml from dir, falling back to the XDG location when dir is
+// empty. Unknown sections are ignored, so a config carrying settings from an
+// older version still loads.
 func Load(dir string) (*Config, error) {
 	if dir == "" {
 		dir = defaultConfigDir()

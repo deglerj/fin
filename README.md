@@ -47,8 +47,10 @@ Credentials are stored encrypted at `~/.config/fin/credentials`. Delete this fil
 | Key | Action |
 |-----|--------|
 | `↑` / `↓` | Navigate |
+| `PgUp` / `PgDn` | Page through list |
 | `→` / `Enter` | Navigate / play episode |
 | `←` / `Esc` / `Backspace` | Back |
+| `J` / `K` | Scroll details text |
 | `/` | Search |
 | `r` | Random item |
 | `m` | Mark played / unplayed |

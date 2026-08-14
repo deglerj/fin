@@ -13,22 +13,15 @@ type LoginSuccess struct {
 	Restored bool
 }
 type LoginError struct{ Err error }
-type TokenValid struct{}
 type TokenInvalid struct{}
 
 // Browser navigation
 type LibrariesLoaded struct{ Libraries []api.Library }
-type ItemsLoaded struct {
-	Items     []api.Item
-	ParentID  string
-	LevelName string
-}
 type PushLevel struct {
 	Items     []api.Item
 	LevelName string
 	ParentID  string
 }
-type PopLevel struct{}
 type FetchVirtualSection struct{ ID string }
 type RefreshLevel struct {
 	Items    []api.Item
@@ -37,7 +30,6 @@ type RefreshLevel struct {
 
 // Overlays
 type OpenDetails struct{ Item api.Item }
-type ItemDetailLoaded struct{ Item api.Item }
 type ImageLoaded struct {
 	Data   []byte
 	ItemId string
@@ -69,4 +61,3 @@ type PlayedToggled struct {
 
 // Error
 type AppError struct{ Err error }
-type DismissError struct{}

@@ -44,11 +44,6 @@ func (c *Client) Authenticate(ctx context.Context, username, password string) (A
 	return resp, err
 }
 
-func (c *Client) ValidateToken(ctx context.Context) error {
-	var result map[string]any
-	return c.get(ctx, "/Users/"+url.PathEscape(c.userID), &result)
-}
-
 func (c *Client) GetLibraries(ctx context.Context) ([]Library, error) {
 	var resp LibraryResponse
 	err := c.get(ctx, "/Library/MediaFolders", &resp)

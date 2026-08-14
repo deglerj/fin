@@ -271,10 +271,6 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.browser, _ = asBrowserModel(m.browser.Update(message))
 		return m, nil
 
-	case msg.DismissError:
-		m.errorMsg = ""
-		return m, nil
-
 	case msg.FetchVirtualSection:
 		c := m.client
 		if c == nil {

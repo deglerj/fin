@@ -26,8 +26,8 @@ func TestPushLevel(t *testing.T) {
 	m := browser.New(nil, 80, 24)
 	updated, _ := m.Update(msg.PushLevel{Items: makeItems("A", "B", "C"), LevelName: "Movies"})
 	bm := updated.(browser.Model)
-	require.Equal(t, 1, bm.Depth())
 	require.Equal(t, "A", bm.SelectedItem().Name)
+	require.Contains(t, bm.View(), "Movies")
 }
 
 func TestNavigateDown(t *testing.T) {
@@ -38,13 +38,23 @@ func TestNavigateDown(t *testing.T) {
 	require.Equal(t, "B", bm.SelectedItem().Name)
 }
 
-func TestPopLevel(t *testing.T) {
+func TestBackKeyPopsLevel(t *testing.T) {
 	m := browser.New(nil, 80, 24)
 	m2, _ := m.Update(msg.PushLevel{Items: makeItems("A"), LevelName: "Level1"})
 	m3, _ := m2.(browser.Model).Update(msg.PushLevel{Items: makeItems("X"), LevelName: "Level2"})
-	m4, _ := m3.(browser.Model).Update(msg.PopLevel{})
+	require.Equal(t, "X", m3.(browser.Model).SelectedItem().Name)
+
+	m4, _ := m3.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyEsc})
 	bm := m4.(browser.Model)
-	require.Equal(t, 1, bm.Depth())
+	require.Equal(t, "A", bm.SelectedItem().Name)
+	require.NotContains(t, bm.View(), "Level2", "breadcrumb should have dropped the popped level")
+}
+
+func TestBackKeyStopsAtTheRootLevel(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: makeItems("A"), LevelName: "Level1"})
+	m3, _ := m2.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyEsc})
+	require.Equal(t, "A", m3.(browser.Model).SelectedItem().Name)
 }
 
 func TestRandomSelectionOnLeaves(t *testing.T) {
@@ -144,7 +154,7 @@ func makeSWRModel(t *testing.T) (browser.Model, []api.Item) {
 	seasons := makeItems("Season 1", "Season 2")
 	// PushLevel with ParentID populates the cache
 	m3, _ := m2.(browser.Model).Update(msg.PushLevel{ParentID: "s1", LevelName: "Seasons", Items: seasons})
-	m4, _ := m3.(browser.Model).Update(msg.PopLevel{})
+	m4, _ := m3.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyEsc})
 	return m4.(browser.Model), seasons
 }
 
