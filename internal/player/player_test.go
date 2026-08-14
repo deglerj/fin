@@ -162,5 +162,7 @@ func TestSocketPath(t *testing.T) {
 	path := player.SocketPath()
 	require.Contains(t, path, "mpv-fin-")
 	require.Contains(t, path, ".sock")
-	require.Equal(t, os.TempDir(), filepath.Dir(path), "socket must live in the temp dir, not a hardcoded /tmp")
+	// Clean: macOS reports the temp dir with a trailing slash, which Join strips.
+	require.Equal(t, filepath.Clean(os.TempDir()), filepath.Dir(path),
+		"socket must live in the temp dir, not a hardcoded /tmp")
 }
