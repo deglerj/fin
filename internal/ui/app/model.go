@@ -353,7 +353,7 @@ func (m Model) View() string {
 			// \x1b[2;{bw+2}H = row 2 (below details top border), col bw+2 (inside left border).
 			sb.WriteString("\x1b7")
 			fmt.Fprintf(&sb, "\x1b[2;%dH", bw+2)
-			sb.WriteString(image.Encode(m.details.ImageData()))
+			sb.WriteString(image.Encode(m.details.ImageData(), m.details.ImageCols(), m.details.ImageRows()))
 			sb.WriteString("\x1b8")
 		}
 	}

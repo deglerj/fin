@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/image"
 	"github.com/deglerj/fin/internal/ui/msg"
 	"github.com/deglerj/fin/internal/ui/styles"
 )
@@ -16,6 +17,8 @@ type Model struct {
 	item         api.Item
 	imageCapable bool
 	imageData    []byte
+	imageCols    int
+	imageRows    int
 	client       apiClient
 	width        int
 	height       int
@@ -30,11 +33,38 @@ func New(imageCapable bool) Model {
 }
 
 func (m Model) WithClient(c apiClient) Model { m.client = c; return m }
-func (m Model) WithSize(w, h int) Model      { m.width = w; m.height = h; return m }
-func (m Model) HasImage() bool               { return len(m.imageData) > 0 }
-func (m Model) ImageData() []byte            { return m.imageData }
 
-func (m Model) ImageRows() int {
+func (m Model) WithSize(w, h int) Model {
+	m.width, m.height = w, h
+	return m.fitImage()
+}
+
+func (m Model) HasImage() bool    { return m.imageRows > 0 }
+func (m Model) ImageData() []byte { return m.imageData }
+
+// ImageCols and ImageRows are the cells the placed image occupies — the same
+// numbers View reserves blank lines for, so the image cannot cover text.
+func (m Model) ImageCols() int { return m.imageCols }
+func (m Model) ImageRows() int { return m.imageRows }
+
+// fitImage recomputes the image's cell footprint for the current pane size.
+func (m Model) fitImage() Model {
+	m.imageCols, m.imageRows = 0, 0
+	if len(m.imageData) > 0 {
+		m.imageCols, m.imageRows = image.Fit(m.imageData, m.maxImageCols(), m.maxImageRows())
+	}
+	return m
+}
+
+func (m Model) maxImageCols() int {
+	c := m.width - 4
+	if c < 8 {
+		c = 8
+	}
+	return c
+}
+
+func (m Model) maxImageRows() int {
 	r := (m.height - 2) / 2
 	if r < 4 {
 		r = 4
@@ -52,6 +82,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.item = message.Item
 		m.imageData = nil
+		m.imageCols, m.imageRows = 0, 0
 		var cmd tea.Cmd
 		tag := message.Item.ImageTags["Primary"]
 		// ImageTags == nil means no tag data (e.g. library folders constructed without it) — attempt fetch anyway.
@@ -59,14 +90,10 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if m.imageCapable && m.client != nil && hasImage {
 			itemID := message.Item.Id
 			c := m.client
-			imgCols := m.width - 4
-			if imgCols < 8 {
-				imgCols = 8
-			}
-			imgRows := m.ImageRows()
-			// Multiply terminal cells by approximate pixel dimensions (9×20) to get real pixel size.
-			maxW := imgCols * 9
-			maxH := imgRows * 20
+			// Ask the server for the pixel size the pane's cell budget really is.
+			cellW, cellH := image.CellSize()
+			maxW := m.maxImageCols() * cellW
+			maxH := m.maxImageRows() * cellH
 			cmd = func() tea.Msg {
 				data, err := c.GetImage(context.Background(), itemID, maxW, maxH, tag)
 				if err != nil {
@@ -79,6 +106,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case msg.ImageLoaded:
 		if message.ItemId == m.item.Id {
 			m.imageData = message.Data
+			return m.fitImage(), nil
 		}
 	}
 	return m, nil
