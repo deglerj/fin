@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -51,13 +50,13 @@ type Model struct {
 	details details.Model
 	search  search.Model
 
-	overlay            overlayKind
-	selectedItemID     string
-	playingItem        *api.Item
-	playingChapterFile string
-	errorMsg           string
-	width              int
-	height             int
+	overlay          overlayKind
+	selectedItemID   string
+	playingItem      *api.Item
+	playingTempFiles []string
+	errorMsg         string
+	width            int
+	height           int
 }
 
 func New(cfg *config.Config, client *api.Client, imageCapable bool) Model {
@@ -73,8 +72,11 @@ func New(cfg *config.Config, client *api.Client, imageCapable bool) Model {
 	}
 }
 
-func (m Model) Screen() ScreenKind         { return m.screen }
-func (m Model) PlayingChapterFile() string { return m.playingChapterFile }
+func (m Model) Screen() ScreenKind { return m.screen }
+
+// PlayingTempFiles lists the files the running player reads and that DoneMsg
+// must clean up.
+func (m Model) PlayingTempFiles() []string { return m.playingTempFiles }
 
 func (m Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{m.login.Init(), m.browser.Init()}
@@ -183,7 +185,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if fetched.Type == "Episode" {
 				if ts, err := client.GetIntroTimestamps(context.Background(), fetched.Id); err == nil && ts.Valid {
-					fetched.Chapters = injectIntroChapters(fetched.Chapters, ts)
+					fetched.Chapters = player.MergeIntroChapters(fetched.Chapters, ts)
 				}
 			}
 			return msg.ItemReadyToPlay{Item: fetched}
@@ -194,26 +196,32 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if m.cfg == nil || m.client == nil {
 			return m, nil
 		}
-		url := m.client.StreamURL(item)
 		startSec := item.UserData.PlaybackPositionTicks / 10_000_000
 		socketPath := player.SocketPath()
-		client := m.client
-		go player.Monitor(socketPath, client, item, startSec)
-
-		extraArgs := append([]string{}, m.cfg.Player.ExtraArgs...)
-		if isVideoItem(item) && len(item.Chapters) > 0 {
-			if path, err := WriteChapterFile(item.Chapters); err == nil {
-				m.playingChapterFile = path
-				extraArgs = append(extraArgs, "--chapters-file="+path)
-			}
+		if socketPath != "" {
+			go player.Monitor(socketPath, m.client, item, startSec)
 		}
-		return m, player.Play(m.cfg.Player.Command, extraArgs, url, item.MediaTitle(), startSec, socketPath)
+
+		opts := player.Options{
+			Command:    m.cfg.Player.Command,
+			ExtraArgs:  m.cfg.Player.ExtraArgs,
+			URL:        m.client.StreamURL(item),
+			Title:      item.MediaTitle(),
+			StartSec:   startSec,
+			SocketPath: socketPath,
+		}
+		if isVideoItem(item) {
+			opts.Chapters = item.Chapters
+		}
+		cmd, temps := player.Play(opts)
+		m.playingTempFiles = temps
+		return m, cmd
 
 	case player.DoneMsg:
-		if m.playingChapterFile != "" {
-			_ = os.Remove(m.playingChapterFile)
-			m.playingChapterFile = ""
+		for _, path := range m.playingTempFiles {
+			_ = os.Remove(path)
 		}
+		m.playingTempFiles = nil
 		if message.Err != nil {
 			m.errorMsg = message.Err.Error()
 		}
@@ -472,40 +480,4 @@ func asSearchModel(m tea.Model, cmd tea.Cmd) (search.Model, tea.Cmd) {
 
 func isVideoItem(item api.Item) bool {
 	return item.Type == "Movie" || item.Type == "Episode"
-}
-
-func injectIntroChapters(chapters []api.ChapterInfo, ts api.IntroTimestamps) []api.ChapterInfo {
-	chapters = append(chapters,
-		api.ChapterInfo{StartPositionTicks: int64(ts.IntroStart * 10_000_000), Name: "Intro"},
-		api.ChapterInfo{StartPositionTicks: int64(ts.IntroEnd * 10_000_000), Name: "After Intro"},
-	)
-	sort.Slice(chapters, func(i, j int) bool {
-		return chapters[i].StartPositionTicks < chapters[j].StartPositionTicks
-	})
-	return chapters
-}
-
-func WriteChapterFile(chapters []api.ChapterInfo) (string, error) {
-	f, err := os.CreateTemp("", "fin-chapters-*.txt")
-	if err != nil {
-		return "", err
-	}
-	for i, c := range chapters {
-		ms := c.StartPositionTicks / 10_000
-		hh := ms / 3_600_000
-		mm := (ms % 3_600_000) / 60_000
-		ss := (ms % 60_000) / 1_000
-		mmm := ms % 1_000
-		n := i + 1
-		if _, err := fmt.Fprintf(f, "CHAPTER%02d=%02d:%02d:%02d.%03d\nCHAPTER%02dNAME=%s\n", n, hh, mm, ss, mmm, n, c.Name); err != nil {
-			_ = f.Close()
-			_ = os.Remove(f.Name())
-			return "", err
-		}
-	}
-	if err := f.Close(); err != nil {
-		_ = os.Remove(f.Name())
-		return "", err
-	}
-	return f.Name(), nil
 }

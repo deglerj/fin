@@ -527,6 +527,25 @@ func TestPlayItemFetchFailsFallsBackToOriginal(t *testing.T) {
 	require.Empty(t, ready.Item.Chapters)
 }
 
+// chapterFileOf returns the chapter temp file among the player's temp files, or "".
+func chapterFileOf(m app.Model) string {
+	for _, p := range m.PlayingTempFiles() {
+		if strings.Contains(p, "fin-chapters-") {
+			return p
+		}
+	}
+	return ""
+}
+
+func cleanupTempFiles(t *testing.T, m app.Model) {
+	t.Helper()
+	t.Cleanup(func() {
+		for _, p := range m.PlayingTempFiles() {
+			_ = os.Remove(p)
+		}
+	})
+}
+
 func TestItemReadyToPlayCreatesChapterFileForVideo(t *testing.T) {
 	cfg := &config.Config{Player: config.PlayerConfig{Command: "mpv"}}
 	m := newAppWithCfgAndMockServer(t, cfg, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -543,12 +562,12 @@ func TestItemReadyToPlayCreatesChapterFileForVideo(t *testing.T) {
 		},
 	}
 	m2, _ := m.Update(msg.ItemReadyToPlay{Item: item})
-	chapterFile := m2.(app.Model).PlayingChapterFile()
-	require.NotEmpty(t, chapterFile, "chapter file path should be set for video with chapters")
+	am := m2.(app.Model)
+	cleanupTempFiles(t, am)
 
-	_, err := os.Stat(chapterFile)
-	require.NoError(t, err, "chapter file should exist on disk")
-	t.Cleanup(func() { _ = os.Remove(chapterFile) })
+	chapterFile := chapterFileOf(am)
+	require.NotEmpty(t, chapterFile, "chapter file expected for video with chapters")
+	require.FileExists(t, chapterFile)
 }
 
 func TestItemReadyToPlayNoChapterFileWhenNoChapters(t *testing.T) {
@@ -559,7 +578,9 @@ func TestItemReadyToPlayNoChapterFileWhenNoChapters(t *testing.T) {
 
 	item := api.Item{Id: "movie1", Type: "Movie", Name: "Dune"}
 	m2, _ := m.Update(msg.ItemReadyToPlay{Item: item})
-	require.Empty(t, m2.(app.Model).PlayingChapterFile(), "no chapter file expected when item has no chapters")
+	am := m2.(app.Model)
+	cleanupTempFiles(t, am)
+	require.Empty(t, chapterFileOf(am), "no chapter file expected when item has no chapters")
 }
 
 func TestItemReadyToPlayNoChapterFileForAudio(t *testing.T) {
@@ -577,7 +598,9 @@ func TestItemReadyToPlayNoChapterFileForAudio(t *testing.T) {
 		},
 	}
 	m2, _ := m.Update(msg.ItemReadyToPlay{Item: item})
-	require.Empty(t, m2.(app.Model).PlayingChapterFile(), "no chapter file expected for audio items")
+	am := m2.(app.Model)
+	cleanupTempFiles(t, am)
+	require.Empty(t, chapterFileOf(am), "no chapter file expected for audio items")
 }
 
 func TestPlayItemInjectsIntroChaptersForEpisode(t *testing.T) {
@@ -632,30 +655,7 @@ func TestPlayItemSkipsIntroTimestampsWhenPluginAbsent(t *testing.T) {
 	require.Empty(t, ready.Item.Chapters)
 }
 
-func TestWriteChapterFile(t *testing.T) {
-	chapters := []api.ChapterInfo{
-		{StartPositionTicks: 0, Name: "Intro"},
-		{StartPositionTicks: 100_000_000, Name: "Act 1"},  // 10 seconds
-		{StartPositionTicks: 600_000_000, Name: "Climax"}, // 60 seconds
-	}
-	path, err := app.WriteChapterFile(chapters)
-	require.NoError(t, err)
-	require.NotEmpty(t, path)
-	t.Cleanup(func() { _ = os.Remove(path) })
-
-	data, err := os.ReadFile(path)
-	require.NoError(t, err)
-	content := string(data)
-
-	require.Contains(t, content, "CHAPTER01=00:00:00.000\n")
-	require.Contains(t, content, "CHAPTER01NAME=Intro\n")
-	require.Contains(t, content, "CHAPTER02=00:00:10.000\n")
-	require.Contains(t, content, "CHAPTER02NAME=Act 1\n")
-	require.Contains(t, content, "CHAPTER03=00:01:00.000\n")
-	require.Contains(t, content, "CHAPTER03NAME=Climax\n")
-}
-
-func TestDoneMsgDeletesChapterFile(t *testing.T) {
+func TestDoneMsgDeletesTempFiles(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/Items/movie1") {
 			require.NoError(t, json.NewEncoder(w).Encode(api.Item{
@@ -683,16 +683,16 @@ func TestDoneMsgDeletesChapterFile(t *testing.T) {
 		},
 	}
 	m3, _ := m2.(app.Model).Update(msg.ItemReadyToPlay{Item: itemWithChapters})
-	chapterFile := m3.(app.Model).PlayingChapterFile()
-	require.NotEmpty(t, chapterFile)
+	temps := m3.(app.Model).PlayingTempFiles()
+	require.NotEmpty(t, temps, "playlist and chapter file expected")
+	for _, p := range temps {
+		require.FileExists(t, p, "temp file should exist before DoneMsg")
+	}
 
-	_, statErr := os.Stat(chapterFile)
-	require.NoError(t, statErr, "chapter file should exist before DoneMsg")
-
-	// DoneMsg should delete the chapter file and clear the field
+	// DoneMsg deletes every temp file the player was reading.
 	m4, _ := m3.(app.Model).Update(player.DoneMsg{})
-	require.Empty(t, m4.(app.Model).PlayingChapterFile())
-
-	_, statErr = os.Stat(chapterFile)
-	require.True(t, os.IsNotExist(statErr), "chapter file should be deleted after DoneMsg")
+	require.Empty(t, m4.(app.Model).PlayingTempFiles())
+	for _, p := range temps {
+		require.NoFileExists(t, p, "temp file should be deleted after DoneMsg")
+	}
 }
