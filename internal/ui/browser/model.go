@@ -66,7 +66,23 @@ func New(client *api.Client, width, height int) Model {
 	return Model{client: client, cache: make(map[string][]api.Item), width: width, height: height, spinner: sp}
 }
 
+// maxCachedLevels bounds the per-level item cache, which otherwise grows for
+// every folder visited in a session.
+// ponytail: clear-all rather than LRU — the stack keeps its own copy of the
+// levels on screen, so a flush costs at most one refetch.
+const maxCachedLevels = 64
+
 func (m Model) Depth() int { return len(m.stack) }
+
+func (m *Model) cacheLevel(parentID string, items []api.Item) {
+	if parentID == "" {
+		return
+	}
+	if len(m.cache) >= maxCachedLevels {
+		clear(m.cache)
+	}
+	m.cache[parentID] = items
+}
 
 // abandonFetch cancels the in-flight child fetch, if any. Called whenever the
 // level it was loading stops being the one the user is looking at; cancelling
@@ -147,14 +163,12 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if hasBack {
 			cursor = 1
 		}
-		if message.ParentID != "" {
-			m.cache[message.ParentID] = message.Items
-		}
+		m.cacheLevel(message.ParentID, message.Items)
 		m.stack = append(m.stack, level{name: message.LevelName, parentID: message.ParentID, items: message.Items, hasBack: hasBack, cursor: cursor})
 		return m, nil
 
 	case msg.RefreshLevel:
-		m.cache[message.ParentID] = message.Items
+		m.cacheLevel(message.ParentID, message.Items)
 		for i, l := range m.stack {
 			if l.parentID == message.ParentID {
 				m.stack[i].items = message.Items

@@ -38,6 +38,16 @@ type ItemDetailLoaded struct{ Item api.Item }
 type ImageLoaded struct {
 	Data   []byte
 	ItemId string
+	Tag    string
+}
+
+// ImageDebounce fires once a selection has held still long enough to be worth
+// fetching a poster for. Seq identifies the selection so ticks for ones the
+// user has already moved past can be discarded.
+type ImageDebounce struct {
+	Seq    int
+	ItemID string
+	Tag    string
 }
 type OpenSearch struct{}
 type SearchResults struct{ Items []api.Item }

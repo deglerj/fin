@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,6 +16,15 @@ import (
 	"github.com/deglerj/fin/internal/ui/styles"
 )
 
+// imageDebounce is how long a selection must hold still before its poster is
+// fetched. Without it, holding ↓ through a long season fires one HTTP request
+// per row.
+const imageDebounce = 150 * time.Millisecond
+
+// maxCachedImages bounds the poster cache.
+// ponytail: clear-all rather than LRU — a browsing session rarely reaches this.
+const maxCachedImages = 64
+
 type Model struct {
 	item         api.Item
 	imageCapable bool
@@ -24,6 +34,12 @@ type Model struct {
 	client       apiClient
 	width        int
 	height       int
+	// seq identifies the current selection, so debounce ticks for selections
+	// the user has already moved past can be discarded.
+	seq int
+	// imageCache is shared by every copy of the model, so revisiting an item
+	// costs no request. Only Update writes to it, never a command goroutine.
+	imageCache map[string][]byte
 	// vp scrolls the text below the poster; long overviews and cast lists
 	// would otherwise be silently cut off at the pane's bottom edge.
 	vp viewport.Model
@@ -34,8 +50,14 @@ type apiClient interface {
 }
 
 func New(imageCapable bool) Model {
-	return Model{imageCapable: imageCapable, vp: viewport.New(0, 0)}
+	return Model{
+		imageCapable: imageCapable,
+		imageCache:   make(map[string][]byte),
+		vp:           viewport.New(0, 0),
+	}
 }
+
+func imageKey(itemID, tag string) string { return itemID + "|" + tag }
 
 func (m Model) WithClient(c apiClient) Model { m.client = c; return m }
 
@@ -117,35 +139,63 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.item = message.Item
 		m.imageData = nil
 		m.imageCols, m.imageRows = 0, 0
-		m = m.refresh()
-		m.vp.SetYOffset(0)
-		var cmd tea.Cmd
+		m.seq++
 		tag := message.Item.ImageTags["Primary"]
 		// ImageTags == nil means no tag data (e.g. library folders constructed without it) — attempt fetch anyway.
 		hasImage := message.Item.ImageTags == nil || tag != ""
-		if m.imageCapable && m.client != nil && hasImage {
-			itemID := message.Item.Id
-			c := m.client
-			// Ask the server for the pixel size the pane's cell budget really is.
-			cellW, cellH := image.CellSize()
-			maxW := m.maxImageCols() * cellW
-			maxH := m.maxImageRows() * cellH
-			cmd = func() tea.Msg {
-				data, err := c.GetImage(context.Background(), itemID, maxW, maxH, tag)
-				if err != nil {
-					return nil
-				}
-				return msg.ImageLoaded{Data: data, ItemId: itemID}
-			}
+		if !m.imageCapable || m.client == nil || !hasImage {
+			m = m.refresh()
+			m.vp.SetYOffset(0)
+			return m, nil
 		}
-		return m, cmd
+		if data, ok := m.imageCache[imageKey(message.Item.Id, tag)]; ok {
+			m.imageData = data
+			m = m.fitImage().refresh()
+			m.vp.SetYOffset(0)
+			return m, nil
+		}
+		m = m.refresh()
+		m.vp.SetYOffset(0)
+		tick := msg.ImageDebounce{Seq: m.seq, ItemID: message.Item.Id, Tag: tag}
+		return m, tea.Tick(imageDebounce, func(time.Time) tea.Msg { return tick })
+
+	case msg.ImageDebounce:
+		// A newer selection has arrived; this poster is no longer wanted.
+		if message.Seq != m.seq || m.client == nil {
+			return m, nil
+		}
+		c := m.client
+		itemID, tag := message.ItemID, message.Tag
+		// Ask the server for the pixel size the pane's cell budget really is.
+		cellW, cellH := image.CellSize()
+		maxW := m.maxImageCols() * cellW
+		maxH := m.maxImageRows() * cellH
+		return m, func() tea.Msg {
+			data, err := c.GetImage(context.Background(), itemID, maxW, maxH, tag)
+			if err != nil {
+				return nil
+			}
+			return msg.ImageLoaded{Data: data, ItemId: itemID, Tag: tag}
+		}
+
 	case msg.ImageLoaded:
+		m.cacheImage(message.ItemId, message.Tag, message.Data)
 		if message.ItemId == m.item.Id {
 			m.imageData = message.Data
 			return m.fitImage().refresh(), nil
 		}
 	}
 	return m, nil
+}
+
+func (m Model) cacheImage(itemID, tag string, data []byte) {
+	if len(data) == 0 {
+		return
+	}
+	if len(m.imageCache) >= maxCachedImages {
+		clear(m.imageCache)
+	}
+	m.imageCache[imageKey(itemID, tag)] = data
 }
 
 // body renders the scrollable text of the pane, excluding the poster.

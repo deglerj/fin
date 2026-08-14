@@ -167,7 +167,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.overlay = overlayNone
 		return m.updateBrowser(msg.PushLevel{Items: []api.Item{message.Item}, LevelName: message.Item.Name})
 
-	case msg.ImageLoaded:
+	case msg.ImageLoaded, msg.ImageDebounce:
 		var cmd tea.Cmd
 		m.details, cmd = asDetailsModel(m.details.Update(message))
 		return m, cmd

@@ -3,6 +3,7 @@ package details_test
 
 import (
 	"bytes"
+	"context"
 	"image"
 	"image/png"
 	"strings"
@@ -86,4 +87,70 @@ func TestOverviewWrapsOnDisplayWidth(t *testing.T) {
 	m := details.New(false).WithSize(24, 20)
 	m2, _ := m.Update(msg.OpenDetails{Item: api.Item{Id: "m1", Name: "x", Overview: "üüüüüüüüüüüüüüüü"}})
 	require.Contains(t, m2.(details.Model).View(), "üüüüüüüüüüüüüüüü")
+}
+
+// fakeImages counts GetImage calls and always returns the same PNG.
+type fakeImages struct {
+	calls int
+	png   []byte
+}
+
+func (f *fakeImages) GetImage(_ context.Context, _ string, _, _ int, _ string) ([]byte, error) {
+	f.calls++
+	return f.png, nil
+}
+
+func testPNG(t *testing.T) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	require.NoError(t, png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 40, 60))))
+	return buf.Bytes()
+}
+
+// Moving the cursor emits a debounce tick per item, but only the tick matching
+// the item the user actually settled on may fetch.
+func TestImageFetchIsDebounced(t *testing.T) {
+	f := &fakeImages{png: testPNG(t)}
+	m := details.New(true).WithClient(f).WithSize(40, 20)
+
+	var ticks []msg.ImageDebounce
+	for _, id := range []string{"a", "b", "c"} {
+		next, cmd := m.Update(msg.OpenDetails{Item: api.Item{Id: id, Name: id}})
+		m = next.(details.Model)
+		require.NotNil(t, cmd, "expected a debounce tick for %q", id)
+		// tea.Tick's timer starts when the Cmd is built, so invoke it exactly once.
+		produced := cmd()
+		tick, ok := produced.(msg.ImageDebounce)
+		require.True(t, ok, "expected ImageDebounce, got %T", produced)
+		ticks = append(ticks, tick)
+	}
+
+	for _, tick := range ticks[:2] {
+		_, cmd := m.Update(tick)
+		require.Nil(t, cmd, "a superseded selection must not fetch")
+	}
+	_, cmd := m.Update(ticks[2])
+	require.NotNil(t, cmd)
+	require.NotNil(t, cmd())
+	require.Equal(t, 1, f.calls, "only the settled selection should fetch")
+}
+
+func TestImageIsServedFromCacheOnRevisit(t *testing.T) {
+	f := &fakeImages{png: testPNG(t)}
+	m := details.New(true).WithClient(f).WithSize(40, 20)
+	item := api.Item{Id: "a", Name: "a"}
+
+	next, cmd := m.Update(msg.OpenDetails{Item: item})
+	tick, ok := cmd().(msg.ImageDebounce)
+	require.True(t, ok)
+	next, cmd = next.(details.Model).Update(tick)
+	next, _ = next.(details.Model).Update(cmd())
+	require.Equal(t, 1, f.calls)
+
+	// Move away, then back.
+	next, _ = next.(details.Model).Update(msg.OpenDetails{Item: api.Item{Id: "b", Name: "b"}})
+	back, cmd := next.(details.Model).Update(msg.OpenDetails{Item: item})
+	require.Nil(t, cmd, "a cached poster must not schedule a fetch")
+	require.True(t, back.(details.Model).HasImage())
+	require.Equal(t, 1, f.calls)
 }
