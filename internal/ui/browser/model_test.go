@@ -375,3 +375,30 @@ func TestDownWrapAdjustsOffsetForLongList(t *testing.T) {
 	m5, _ := m4.(browser.Model).Update(tea.KeyMsg{Type: tea.KeyDown})
 	require.Equal(t, "item00", m5.(browser.Model).SelectedItem().Name)
 }
+
+func TestRefreshLevelClampsCursorWhenListShrinks(t *testing.T) {
+	items := make([]api.Item, 10)
+	for i := range items {
+		items[i] = api.Item{Id: fmt.Sprintf("id%d", i), Name: "x", Type: "Movie"}
+	}
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: items, LevelName: "L", ParentID: "p"})
+	bm := m2.(browser.Model)
+	for i := 0; i < 8; i++ {
+		next, _ := bm.Update(tea.KeyMsg{Type: tea.KeyDown})
+		bm = next.(browser.Model)
+	}
+	require.Equal(t, "id8", bm.SelectedItem().Id)
+
+	m3, _ := bm.Update(msg.RefreshLevel{ParentID: "p", Items: items[:3]})
+	sel := m3.(browser.Model).SelectedItem()
+	require.Equal(t, "id2", sel.Id, "cursor should land on the last surviving item")
+}
+
+func TestRefreshLevelHandlesEmptyResult(t *testing.T) {
+	m := browser.New(nil, 80, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: []api.Item{{Id: "a", Type: "Movie"}}, LevelName: "L", ParentID: "p"})
+	m3, _ := m2.(browser.Model).Update(msg.RefreshLevel{ParentID: "p", Items: nil})
+	require.Equal(t, api.Item{}, m3.(browser.Model).SelectedItem())
+	require.NotPanics(t, func() { _ = m3.(browser.Model).View() })
+}

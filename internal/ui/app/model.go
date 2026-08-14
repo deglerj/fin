@@ -86,6 +86,12 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// acceptsText reports whether a text field currently owns the keyboard, so
+// global single-key shortcuts stay out of the way.
+func (m Model) acceptsText() bool {
+	return m.overlay == overlaySearch || m.screen == ScreenLogin
+}
+
 func (m Model) browserWidth() int {
 	bw := m.width * 2 / 3
 	if m.width > 0 && bw < 20 {
@@ -281,20 +287,29 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
-		if message.String() == "ctrl+c" || (message.String() == "q" && m.screen != ScreenLogin) {
+		if message.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
-		if message.String() == "?" && m.overlay == overlayNone {
-			m.overlay = overlayHelp
-			return m, nil
+		// Single-key shortcuts must not fire while a text field has focus,
+		// or typing "q" into the search box quits the app.
+		if m.acceptsText() {
+			break
 		}
-		if message.String() == "?" && m.overlay == overlayHelp {
-			m.overlay = overlayNone
+		switch message.String() {
+		case "q":
+			return m, tea.Quit
+		case "?":
+			if m.overlay == overlayHelp {
+				m.overlay = overlayNone
+			} else {
+				m.overlay = overlayHelp
+			}
 			return m, nil
-		}
-		if message.String() == "esc" && m.errorMsg != "" {
-			m.errorMsg = ""
-			return m, nil
+		case "esc":
+			if m.errorMsg != "" {
+				m.errorMsg = ""
+				return m, nil
+			}
 		}
 	}
 

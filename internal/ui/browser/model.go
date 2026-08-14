@@ -67,6 +67,47 @@ func New(client *api.Client, width, height int) Model {
 
 func (m Model) Depth() int { return len(m.stack) }
 
+// abandonFetch cancels the in-flight child fetch, if any. Called whenever the
+// level it was loading stops being the one the user is looking at; cancelling
+// an already-finished request is a no-op.
+func (m *Model) abandonFetch() {
+	if m.cancelFetch != nil {
+		m.cancelFetch()
+		m.cancelFetch = nil
+	}
+}
+
+// pop drops the top level and abandons any fetch that was filling it.
+func (m *Model) pop() {
+	if len(m.stack) > 1 {
+		m.stack = m.stack[:len(m.stack)-1]
+		m.abandonFetch()
+	}
+}
+
+// clampCursor keeps cursor and offset inside a level whose item list changed
+// size under it, so a shrinking refresh cannot strand the cursor past the end.
+func clampCursor(l level, visible int) level {
+	maxIdx := l.displayLen() - 1
+	if maxIdx < 0 {
+		l.cursor, l.offset = 0, 0
+		return l
+	}
+	if l.cursor > maxIdx {
+		l.cursor = maxIdx
+	}
+	if visible > 0 && l.cursor >= l.offset+visible {
+		l.offset = l.cursor - visible + 1
+	}
+	if l.offset > l.cursor {
+		l.offset = l.cursor
+	}
+	if l.offset < 0 {
+		l.offset = 0
+	}
+	return l
+}
+
 func (m Model) SelectedItem() api.Item {
 	if len(m.stack) == 0 {
 		return api.Item{}
@@ -99,7 +140,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch message := message.(type) {
 	case msg.PushLevel:
 		m.loading = false
-		m.cancelFetch = nil
+		m.abandonFetch()
 		hasBack := len(m.stack) > 0
 		cursor := 0
 		if hasBack {
@@ -117,14 +158,13 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			if l.parentID == message.ParentID {
 				m.stack[i].items = message.Items
 				m.stack[i].revalidating = false
+				m.stack[i] = clampCursor(m.stack[i], m.visibleHeight())
 			}
 		}
 		return m, nil
 
 	case msg.PopLevel:
-		if len(m.stack) > 0 {
-			m.stack = m.stack[:len(m.stack)-1]
-		}
+		m.pop()
 		return m, nil
 
 	case msg.AppError:
@@ -205,9 +245,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		case message.String() == "enter" || message.String() == "right":
 			item, isReal := top.itemAt(top.cursor)
 			if !isReal {
-				if len(m.stack) > 1 {
-					m.stack = m.stack[:len(m.stack)-1]
-				}
+				m.pop()
 				return m, nil
 			}
 			if isLeaf(item) {
@@ -217,9 +255,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				m.loading = true
 				return m, func() tea.Msg { return msg.FetchVirtualSection{ID: item.Id} }
 			}
-			if m.cancelFetch != nil {
-				m.cancelFetch()
-			}
+			m.abandonFetch()
 			ctx, cancel := context.WithCancel(context.Background())
 			m.cancelFetch = cancel
 			if cached, ok := m.cache[item.Id]; ok {
@@ -241,9 +277,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			m.loading = true
 			return m, m.fetchChildren(ctx, item, false)
 		case message.String() == "esc" || message.String() == "left" || message.String() == "backspace":
-			if len(m.stack) > 1 {
-				m.stack = m.stack[:len(m.stack)-1]
-			}
+			m.pop()
 		case message.String() == "/":
 			return m, func() tea.Msg { return msg.OpenSearch{} }
 		case message.String() == "r":

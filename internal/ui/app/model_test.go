@@ -696,3 +696,36 @@ func TestDoneMsgDeletesTempFiles(t *testing.T) {
 		require.NoFileExists(t, p, "temp file should be deleted after DoneMsg")
 	}
 }
+
+func TestSearchOverlayKeepsSingleKeyShortcuts(t *testing.T) {
+	m := app.New(nil, nil, false)
+	m2, _ := m.Update(msg.LoginSuccess{ServerURL: "http://jf", UserID: "u1", AccessToken: "tok"})
+	m3, _ := m2.(app.Model).Update(msg.OpenSearch{})
+
+	for _, k := range []string{"q", "?"} {
+		_, cmd := m3.(app.Model).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)})
+		if cmd == nil {
+			continue
+		}
+		_, isQuit := cmd().(tea.QuitMsg)
+		require.False(t, isQuit, "typing %q in the search box must not quit", k)
+	}
+}
+
+func TestLoginScreenKeepsSingleKeyShortcuts(t *testing.T) {
+	m := app.New(nil, nil, false)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	if cmd != nil {
+		_, isQuit := cmd().(tea.QuitMsg)
+		require.False(t, isQuit, "typing \"q\" into the login form must not quit")
+	}
+}
+
+func TestQuitsFromBrowser(t *testing.T) {
+	m := app.New(nil, nil, false)
+	m2, _ := m.Update(msg.LoginSuccess{ServerURL: "http://jf", UserID: "u1", AccessToken: "tok"})
+	_, cmd := m2.(app.Model).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	require.NotNil(t, cmd)
+	_, isQuit := cmd().(tea.QuitMsg)
+	require.True(t, isQuit)
+}
