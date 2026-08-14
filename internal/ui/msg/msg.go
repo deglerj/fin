@@ -8,6 +8,9 @@ type LoginSuccess struct {
 	ServerURL   string
 	UserID      string
 	AccessToken string
+	// Restored marks a session rebuilt from the credentials file at startup,
+	// so it is not written straight back out again.
+	Restored bool
 }
 type LoginError struct{ Err error }
 type TokenValid struct{}

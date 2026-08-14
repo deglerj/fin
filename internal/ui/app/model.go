@@ -78,6 +78,10 @@ func New(cfg *config.Config, client *api.Client, imageCapable bool) Model {
 
 func (m Model) Screen() ScreenKind { return m.screen }
 
+// WithError seeds the model with a message shown on the first frame — used for
+// startup problems that happen before the event loop is running.
+func (m Model) WithError(s string) Model { m.errorMsg = s; return m }
+
 // PlayingTempFiles lists the files the running player reads and that DoneMsg
 // must clean up.
 func (m Model) PlayingTempFiles() []string { return m.playingTempFiles }
@@ -142,10 +146,11 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.search = search.New(m.client).WithWidth(bw)
 		m.details = m.details.WithClient(m.client)
 		m.screen = ScreenBrowser
-		if m.cfg != nil {
-			go saveCredentials(message, m.cfg)
+		m.errorMsg = ""
+		if m.cfg == nil || message.Restored {
+			return m, m.fetchLibraries()
 		}
-		return m, m.fetchLibraries()
+		return m, tea.Batch(m.fetchLibraries(), saveCredentialsCmd(message, m.cfg))
 
 	case msg.LibrariesLoaded:
 		virtual := []api.Item{
@@ -490,13 +495,21 @@ func virtualSectionName(id string) string {
 	return ""
 }
 
-func saveCredentials(ls msg.LoginSuccess, cfg *config.Config) {
-	creds := auth.Credentials{
-		ServerURL:   ls.ServerURL,
-		UserID:      ls.UserID,
-		AccessToken: ls.AccessToken,
+// saveCredentialsCmd persists the session. Running it as a command rather than
+// a detached goroutine means it finishes before the program exits and a write
+// failure reaches the user instead of vanishing.
+func saveCredentialsCmd(ls msg.LoginSuccess, cfg *config.Config) tea.Cmd {
+	return func() tea.Msg {
+		creds := auth.Credentials{
+			ServerURL:   ls.ServerURL,
+			UserID:      ls.UserID,
+			AccessToken: ls.AccessToken,
+		}
+		if err := auth.Save(creds, cfg.CredentialsPath(), auth.DefaultMachineID{}); err != nil {
+			return msg.AppError{Err: fmt.Errorf("could not save credentials: %w", err)}
+		}
+		return nil
 	}
-	_ = auth.Save(creds, cfg.CredentialsPath(), auth.DefaultMachineID{})
 }
 
 func asBrowserModel(m tea.Model, cmd tea.Cmd) (browser.Model, tea.Cmd) {

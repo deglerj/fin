@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -52,27 +53,36 @@ func main() {
 		os.Exit(1)
 	}
 
-	imageCapable := image.Probe()
-
-	var initialModel tea.Model
-	creds, err := auth.LoadCreds(cfg.CredentialsPath(), auth.DefaultMachineID{})
-	if err == nil {
-		client := api.New(creds.ServerURL)
-		client.SetAuth(creds.UserID, creds.AccessToken)
-		m := app.New(cfg, client, imageCapable)
-		m2, _ := m.Update(msg.LoginSuccess{
-			ServerURL:   creds.ServerURL,
-			UserID:      creds.UserID,
-			AccessToken: creds.AccessToken,
-		})
-		initialModel = m2
-	} else {
-		initialModel = app.New(cfg, nil, imageCapable)
-	}
-
-	p := tea.NewProgram(initialModel, tea.WithAltScreen())
+	p := tea.NewProgram(initialModel(cfg, image.Probe()), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+// initialModel restores a saved session when one is available, so fin starts in
+// the browser rather than at the login form.
+func initialModel(cfg *config.Config, imageCapable bool) tea.Model {
+	creds, err := auth.LoadCreds(cfg.CredentialsPath(), auth.DefaultMachineID{})
+	switch {
+	case err == nil:
+	case errors.Is(err, os.ErrNotExist):
+		return app.New(cfg, nil, imageCapable) // first run
+	default:
+		// The file exists but will not decrypt — usually a changed machine ID,
+		// occasionally a truncated write. Say so rather than presenting an
+		// empty login form with no explanation.
+		return app.New(cfg, nil, imageCapable).
+			WithError("saved credentials could not be read (" + err.Error() + ") — please log in again")
+	}
+
+	client := api.New(creds.ServerURL)
+	client.SetAuth(creds.UserID, creds.AccessToken)
+	restored, _ := app.New(cfg, client, imageCapable).Update(msg.LoginSuccess{
+		ServerURL:   creds.ServerURL,
+		UserID:      creds.UserID,
+		AccessToken: creds.AccessToken,
+		Restored:    true,
+	})
+	return restored
 }

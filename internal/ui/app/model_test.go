@@ -12,6 +12,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/deglerj/fin/internal/api"
+	"github.com/deglerj/fin/internal/auth"
 	"github.com/deglerj/fin/internal/config"
 	"github.com/deglerj/fin/internal/player"
 	"github.com/deglerj/fin/internal/ui/app"
@@ -751,4 +752,51 @@ func makeMovies(n int) []api.Item {
 		out[i] = api.Item{Id: fmt.Sprintf("m%d", i), Name: fmt.Sprintf("Movie %d", i), Type: "Movie"}
 	}
 	return out
+}
+
+func TestRestoredSessionIsNotWrittenBackOut(t *testing.T) {
+	dir := t.TempDir()
+	cfg, err := config.Load(dir)
+	require.NoError(t, err)
+
+	m := app.New(cfg, nil, false)
+	_, cmd := m.Update(msg.LoginSuccess{
+		ServerURL: unreachableServer, UserID: "u1", AccessToken: "tok", Restored: true,
+	})
+	runCmd(t, cmd)
+
+	require.NoFileExists(t, cfg.CredentialsPath(),
+		"a session restored from disk must not be saved again on every start")
+}
+
+func TestFreshLoginSavesCredentials(t *testing.T) {
+	dir := t.TempDir()
+	cfg, err := config.Load(dir)
+	require.NoError(t, err)
+
+	m := app.New(cfg, nil, false)
+	_, cmd := m.Update(msg.LoginSuccess{ServerURL: unreachableServer, UserID: "u1", AccessToken: "tok"})
+	runCmd(t, cmd)
+
+	require.FileExists(t, cfg.CredentialsPath())
+	creds, err := auth.LoadCreds(cfg.CredentialsPath(), auth.DefaultMachineID{})
+	require.NoError(t, err)
+	require.Equal(t, "tok", creds.AccessToken)
+}
+
+// unreachableServer refuses connections immediately, so the library fetch that
+// LoginSuccess kicks off fails without a DNS timeout.
+const unreachableServer = "http://127.0.0.1:1"
+
+// runCmd executes cmd and everything a tea.Batch fans out to.
+func runCmd(t *testing.T, cmd tea.Cmd) {
+	t.Helper()
+	require.NotNil(t, cmd)
+	if batch, ok := cmd().(tea.BatchMsg); ok {
+		for _, c := range batch {
+			if c != nil {
+				c()
+			}
+		}
+	}
 }
