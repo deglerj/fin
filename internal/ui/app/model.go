@@ -10,6 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/deglerj/fin/internal/api"
 	"github.com/deglerj/fin/internal/auth"
 	"github.com/deglerj/fin/internal/config"
@@ -30,6 +31,9 @@ const (
 	ScreenLogin ScreenKind = iota
 	ScreenBrowser
 )
+
+// detailsScrollLines is how far J/K move the details text per keypress.
+const detailsScrollLines = 3
 
 type overlayKind int
 
@@ -310,6 +314,12 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				m.errorMsg = ""
 				return m, nil
 			}
+		case "J":
+			m.details = m.details.Scroll(detailsScrollLines)
+			return m, nil
+		case "K":
+			m.details = m.details.Scroll(-detailsScrollLines)
+			return m, nil
 		}
 	}
 
@@ -341,7 +351,8 @@ func (m Model) View() string {
 		}
 		sb.WriteString(m.login.View())
 		if m.errorMsg != "" {
-			sb.WriteString("\n" + styles.Error.Render("Error: "+m.errorMsg+"  [esc to dismiss]"))
+			// The login form is short, so appending cannot overflow the screen.
+			sb.WriteString("\n" + m.errorBanner())
 		}
 		return sb.String()
 	}
@@ -360,11 +371,14 @@ func (m Model) View() string {
 		leftView = lipgloss.NewStyle().Width(bw).Height(m.height).Render(m.browser.View())
 	}
 
-	if m.browser.IsLoading() {
-		sb.WriteString(leftView)
-	} else {
-		sb.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftView, m.details.View()))
+	body := leftView
+	if !m.browser.IsLoading() {
+		body = lipgloss.JoinHorizontal(lipgloss.Top, leftView, m.details.View())
 	}
+	if m.errorMsg != "" {
+		body = replaceLastLine(body, m.errorBanner())
+	}
+	sb.WriteString(body)
 
 	if m.imageCapable {
 		// Always delete before placing: bubbletea batches frames at 60fps, so the
@@ -381,10 +395,24 @@ func (m Model) View() string {
 		}
 	}
 
-	if m.errorMsg != "" {
-		sb.WriteString("\n" + styles.Error.Render("Error: "+m.errorMsg+"  [esc to dismiss]"))
-	}
 	return sb.String()
+}
+
+func (m Model) errorBanner() string {
+	line := "Error: " + m.errorMsg + "  [esc to dismiss]"
+	if m.width > 0 {
+		line = ansi.Truncate(line, m.width, "…")
+	}
+	return styles.Error.Render(line)
+}
+
+// replaceLastLine swaps the final rendered row for s. Appending a banner
+// instead would push the view one row past the terminal height and scroll the
+// alt screen.
+func replaceLastLine(view, s string) string {
+	lines := strings.Split(view, "\n")
+	lines[len(lines)-1] = s
+	return strings.Join(lines, "\n")
 }
 
 func apiErr(err error) tea.Msg {

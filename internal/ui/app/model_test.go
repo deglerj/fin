@@ -729,3 +729,26 @@ func TestQuitsFromBrowser(t *testing.T) {
 	_, isQuit := cmd().(tea.QuitMsg)
 	require.True(t, isQuit)
 }
+
+func TestErrorBannerDoesNotAddARow(t *testing.T) {
+	m := app.New(nil, nil, false)
+	m2, _ := m.Update(msg.LoginSuccess{ServerURL: "http://jf", UserID: "u1", AccessToken: "tok"})
+	m3, _ := m2.(app.Model).Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m4, _ := m3.(app.Model).Update(msg.PushLevel{Items: makeMovies(3), LevelName: "L", ParentID: "p"})
+
+	clean := m4.(app.Model).View()
+	m5, _ := m4.(app.Model).Update(msg.AppError{Err: fmt.Errorf("network timeout")})
+	withError := m5.(app.Model).View()
+
+	require.Contains(t, withError, "network timeout")
+	require.Equal(t, strings.Count(clean, "\n"), strings.Count(withError, "\n"),
+		"error banner must replace the last row, not push the view past the screen")
+}
+
+func makeMovies(n int) []api.Item {
+	out := make([]api.Item, n)
+	for i := range out {
+		out[i] = api.Item{Id: fmt.Sprintf("m%d", i), Name: fmt.Sprintf("Movie %d", i), Type: "Movie"}
+	}
+	return out
+}

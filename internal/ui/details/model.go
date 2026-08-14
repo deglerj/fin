@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/deglerj/fin/internal/api"
 	"github.com/deglerj/fin/internal/image"
 	"github.com/deglerj/fin/internal/ui/msg"
@@ -22,6 +24,9 @@ type Model struct {
 	client       apiClient
 	width        int
 	height       int
+	// vp scrolls the text below the poster; long overviews and cast lists
+	// would otherwise be silently cut off at the pane's bottom edge.
+	vp viewport.Model
 }
 
 type apiClient interface {
@@ -29,14 +34,14 @@ type apiClient interface {
 }
 
 func New(imageCapable bool) Model {
-	return Model{imageCapable: imageCapable}
+	return Model{imageCapable: imageCapable, vp: viewport.New(0, 0)}
 }
 
 func (m Model) WithClient(c apiClient) Model { m.client = c; return m }
 
 func (m Model) WithSize(w, h int) Model {
 	m.width, m.height = w, h
-	return m.fitImage()
+	return m.fitImage().refresh()
 }
 
 func (m Model) HasImage() bool    { return m.imageRows > 0 }
@@ -47,6 +52,18 @@ func (m Model) ImageData() []byte { return m.imageData }
 func (m Model) ImageCols() int { return m.imageCols }
 func (m Model) ImageRows() int { return m.imageRows }
 
+// Scroll moves the text by n lines; negative scrolls up. The poster stays put,
+// since it is placed at a fixed terminal row by the parent model.
+func (m Model) Scroll(n int) Model {
+	switch {
+	case n > 0:
+		m.vp.ScrollDown(n)
+	case n < 0:
+		m.vp.ScrollUp(-n)
+	}
+	return m
+}
+
 // fitImage recomputes the image's cell footprint for the current pane size.
 func (m Model) fitImage() Model {
 	m.imageCols, m.imageRows = 0, 0
@@ -54,6 +71,23 @@ func (m Model) fitImage() Model {
 		m.imageCols, m.imageRows = image.Fit(m.imageData, m.maxImageCols(), m.maxImageRows())
 	}
 	return m
+}
+
+// refresh resizes the viewport around the current poster footprint and rebuilds
+// its content.
+func (m Model) refresh() Model {
+	m.vp.Width = max(m.textWidth(), 1)
+	// -2 for the border, -1 for the hint row View always reserves.
+	m.vp.Height = max(m.height-3-m.imageRows, 1)
+	m.vp.SetContent(m.body())
+	return m
+}
+
+func (m Model) textWidth() int {
+	if w := m.width - 4; w > 0 {
+		return w
+	}
+	return 76
 }
 
 func (m Model) maxImageCols() int {
@@ -83,6 +117,8 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.item = message.Item
 		m.imageData = nil
 		m.imageCols, m.imageRows = 0, 0
+		m = m.refresh()
+		m.vp.SetYOffset(0)
 		var cmd tea.Cmd
 		tag := message.Item.ImageTags["Primary"]
 		// ImageTags == nil means no tag data (e.g. library folders constructed without it) — attempt fetch anyway.
@@ -106,98 +142,76 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case msg.ImageLoaded:
 		if message.ItemId == m.item.Id {
 			m.imageData = message.Data
-			return m.fitImage(), nil
+			return m.fitImage().refresh(), nil
 		}
 	}
 	return m, nil
+}
+
+// body renders the scrollable text of the pane, excluding the poster.
+func (m Model) body() string {
+	if m.item.Id == "" {
+		return styles.Dim.Render("Select an item\nto see details")
+	}
+
+	var content strings.Builder
+	content.WriteString(styles.Title.Render(m.item.Name))
+	if m.item.ProductionYear > 0 {
+		content.WriteString(styles.Subtitle.Render(fmt.Sprintf(" (%d)", m.item.ProductionYear)))
+	}
+	content.WriteByte('\n')
+
+	if m.item.RunTimeTicks > 0 {
+		mins := m.item.RunTimeTicks / 600_000_000
+		content.WriteString(styles.Dim.Render(fmt.Sprintf("%dh%02dm", mins/60, mins%60)))
+		content.WriteByte('\n')
+	}
+
+	if m.item.CommunityRating > 0 {
+		content.WriteString(styles.Dim.Render(fmt.Sprintf("★ %.1f", m.item.CommunityRating)))
+		content.WriteByte('\n')
+	}
+
+	if m.item.Overview != "" {
+		content.WriteByte('\n')
+		content.WriteString(ansi.Wrap(m.item.Overview, m.textWidth(), ""))
+		content.WriteByte('\n')
+	}
+
+	var directors, cast []string
+	for _, p := range m.item.People {
+		switch p.Type {
+		case "Director":
+			directors = append(directors, p.Name)
+		case "Actor":
+			if len(cast) < 5 {
+				cast = append(cast, p.Name)
+			}
+		}
+	}
+	if len(directors) > 0 {
+		content.WriteString(styles.Label.Render("Director: ") + strings.Join(directors, ", ") + "\n")
+	}
+	if len(cast) > 0 {
+		content.WriteString(styles.Label.Render("Cast: ") + strings.Join(cast, ", ") + "\n")
+	}
+	return content.String()
 }
 
 func (m Model) View() string {
 	if m.width == 0 || m.height == 0 {
 		return ""
 	}
-	textWidth := m.width - 4
-	if textWidth <= 0 {
-		textWidth = 76
-	}
 
 	var content strings.Builder
-
-	if m.HasImage() {
-		for i := 0; i < m.ImageRows(); i++ {
-			content.WriteByte('\n')
-		}
-	}
-
-	if m.item.Id == "" {
-		content.WriteString(styles.Dim.Render("Select an item\nto see details"))
-	} else {
-		content.WriteString(styles.Title.Render(m.item.Name))
-		if m.item.ProductionYear > 0 {
-			content.WriteString(styles.Subtitle.Render(fmt.Sprintf(" (%d)", m.item.ProductionYear)))
-		}
+	for i := 0; i < m.imageRows; i++ {
 		content.WriteByte('\n')
-
-		if m.item.RunTimeTicks > 0 {
-			mins := m.item.RunTimeTicks / 600_000_000
-			content.WriteString(styles.Dim.Render(fmt.Sprintf("%dh%02dm", mins/60, mins%60)))
-			content.WriteByte('\n')
-		}
-
-		if m.item.CommunityRating > 0 {
-			content.WriteString(styles.Dim.Render(fmt.Sprintf("★ %.1f", m.item.CommunityRating)))
-			content.WriteByte('\n')
-		}
-
-		if m.item.Overview != "" {
-			content.WriteByte('\n')
-			content.WriteString(wordWrap(m.item.Overview, textWidth))
-			content.WriteByte('\n')
-		}
-
-		var directors, cast []string
-		for _, p := range m.item.People {
-			switch p.Type {
-			case "Director":
-				directors = append(directors, p.Name)
-			case "Actor":
-				if len(cast) < 5 {
-					cast = append(cast, p.Name)
-				}
-			}
-		}
-		if len(directors) > 0 {
-			content.WriteString(styles.Label.Render("Director: ") + strings.Join(directors, ", ") + "\n")
-		}
-		if len(cast) > 0 {
-			content.WriteString(styles.Label.Render("Cast: ") + strings.Join(cast, ", ") + "\n")
-		}
+	}
+	content.WriteString(m.vp.View())
+	content.WriteByte('\n')
+	if m.vp.TotalLineCount() > m.vp.Height {
+		content.WriteString(styles.Dim.Render("J/K scroll"))
 	}
 
-	if m.height > 0 && m.width > 0 {
-		return styles.Overlay.Width(m.width - 2).Height(m.height - 2).MaxHeight(m.height).Render(content.String())
-	}
-	return styles.Overlay.Render(content.String())
-}
-
-func wordWrap(s string, width int) string {
-	if width <= 0 || len(s) <= width {
-		return s
-	}
-	var result strings.Builder
-	words := strings.Fields(s)
-	line := 0
-	for i, w := range words {
-		if line+len(w)+1 > width && line > 0 {
-			result.WriteByte('\n')
-			line = 0
-		}
-		if i > 0 && line > 0 {
-			result.WriteByte(' ')
-			line++
-		}
-		result.WriteString(w)
-		line += len(w)
-	}
-	return result.String()
+	return styles.Overlay.Width(m.width - 2).Height(m.height - 2).MaxHeight(m.height).Render(content.String())
 }

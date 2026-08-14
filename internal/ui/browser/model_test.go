@@ -3,9 +3,11 @@ package browser_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/deglerj/fin/internal/api"
 	"github.com/deglerj/fin/internal/ui/browser"
 	"github.com/deglerj/fin/internal/ui/msg"
@@ -401,4 +403,21 @@ func TestRefreshLevelHandlesEmptyResult(t *testing.T) {
 	m3, _ := m2.(browser.Model).Update(msg.RefreshLevel{ParentID: "p", Items: nil})
 	require.Equal(t, api.Item{}, m3.(browser.Model).SelectedItem())
 	require.NotPanics(t, func() { _ = m3.(browser.Model).View() })
+}
+
+func TestFormatItemAlignsRuntimeOnDisplayWidth(t *testing.T) {
+	m := browser.New(nil, 200, 24)
+	m2, _ := m.Update(msg.PushLevel{Items: []api.Item{
+		{Id: "a", Name: "東京物語", Type: "Movie", RunTimeTicks: 60 * 600_000_000},
+		{Id: "b", Name: "Aaaaaaaa", Type: "Movie", RunTimeTicks: 60 * 600_000_000},
+	}, LevelName: "L"})
+
+	var cols []int
+	for _, line := range strings.Split(m2.(browser.Model).View(), "\n") {
+		if i := strings.Index(line, "60m"); i >= 0 {
+			cols = append(cols, ansi.StringWidth(line[:i]))
+		}
+	}
+	require.Len(t, cols, 2)
+	require.Equal(t, cols[0], cols[1], "wide characters must not shift the runtime column")
 }

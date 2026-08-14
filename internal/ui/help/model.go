@@ -10,7 +10,7 @@ const helpText = `
   PgUp/PgDn   Page through list
   → / Enter   Open / drill in / play
   ⌫ / ← / Esc  Back / close overlay
-  i           Details overlay
+  J / K       Scroll details text
   /           Search
   r           Play random item (recurses into series/seasons)
   ?           Toggle this help

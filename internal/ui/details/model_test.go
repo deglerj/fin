@@ -59,3 +59,31 @@ func leadingBlankLines(view string) int {
 	}
 	return n
 }
+
+func TestLongOverviewIsScrollable(t *testing.T) {
+	m := details.New(false).WithSize(40, 12)
+	long := strings.Repeat("Ein sehr langer Text über den Film. ", 40)
+	m2, _ := m.Update(msg.OpenDetails{Item: api.Item{Id: "m1", Name: "Dune", Overview: long}})
+	dm := m2.(details.Model)
+
+	top := dm.View()
+	require.Contains(t, top, "Dune")
+	require.Contains(t, top, "J/K scroll", "scroll hint expected when content overflows")
+
+	scrolled := dm.Scroll(5).View()
+	require.NotEqual(t, top, scrolled, "J should move the details text")
+	require.Equal(t, strings.Count(top, "\n"), strings.Count(scrolled, "\n"),
+		"scrolling must not change the pane height")
+}
+
+func TestShortOverviewShowsNoScrollHint(t *testing.T) {
+	m := details.New(false).WithSize(40, 20)
+	m2, _ := m.Update(msg.OpenDetails{Item: api.Item{Id: "m1", Name: "Dune", Overview: "Kurz."}})
+	require.NotContains(t, m2.(details.Model).View(), "J/K scroll")
+}
+
+func TestOverviewWrapsOnDisplayWidth(t *testing.T) {
+	m := details.New(false).WithSize(24, 20)
+	m2, _ := m.Update(msg.OpenDetails{Item: api.Item{Id: "m1", Name: "x", Overview: "üüüüüüüüüüüüüüüü"}})
+	require.Contains(t, m2.(details.Model).View(), "üüüüüüüüüüüüüüüü")
+}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/deglerj/fin/internal/api"
 	"github.com/deglerj/fin/internal/ui/msg"
 	"github.com/deglerj/fin/internal/ui/styles"
@@ -115,14 +116,6 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func truncate(s string, maxWidth int) string {
-	runes := []rune(s)
-	if len(runes) <= maxWidth {
-		return s
-	}
-	return string(runes[:maxWidth-1]) + "…"
-}
-
 func (m Model) View() string {
 	var sb strings.Builder
 	sb.WriteString(styles.Label.Render("Search: "))
@@ -140,7 +133,7 @@ func (m Model) View() string {
 			line = item.SeriesName + " – " + item.Name
 		}
 		if m.width > 0 {
-			line = truncate(line, m.width-4)
+			line = ansi.Truncate(line, m.width-4, "…")
 		}
 		if i == m.cursor {
 			sb.WriteString(styles.Selected.Render(line))

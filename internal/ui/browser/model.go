@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/deglerj/fin/internal/api"
 	"github.com/deglerj/fin/internal/ui/keys"
 	"github.com/deglerj/fin/internal/ui/msg"
@@ -430,7 +431,7 @@ func (m Model) View() string {
 			line = formatItem(item)
 		}
 		if m.width > 0 {
-			line = truncate(line, m.width)
+			line = ansi.Truncate(line, m.width, "…")
 		}
 		if i == top.cursor {
 			sb.WriteString(styles.Selected.Width(m.width).Render(line))
@@ -454,12 +455,13 @@ func (m Model) View() string {
 	return sb.String()
 }
 
-func truncate(s string, maxWidth int) string {
-	runes := []rune(s)
-	if len(runes) <= maxWidth {
-		return s
+// pad right-pads s to width terminal columns. Measuring display width rather
+// than bytes or runes keeps accented and double-width names aligned.
+func pad(s string, width int) string {
+	if n := width - ansi.StringWidth(s); n > 0 {
+		return s + strings.Repeat(" ", n)
 	}
-	return string(runes[:maxWidth-1]) + "…"
+	return s
 }
 
 func formatItem(item api.Item) string {
@@ -475,7 +477,7 @@ func formatItem(item api.Item) string {
 	}
 	if item.RunTimeTicks > 0 {
 		mins := item.RunTimeTicks / 600_000_000
-		return fmt.Sprintf("%-50s %dm", name, mins)
+		return fmt.Sprintf("%s %dm", pad(name, 50), mins)
 	}
 	return name
 }
