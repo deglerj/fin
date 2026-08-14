@@ -373,3 +373,41 @@ func TestGetItemUnmarshalsChapters(t *testing.T) {
 	require.Equal(t, "Chapter 1", item.Chapters[1].Name)
 	require.Equal(t, int64(50_000_000), item.Chapters[1].StartPositionTicks)
 }
+
+func TestNewAddsHTTPSWhenSchemeMissing(t *testing.T) {
+	require.Equal(t, "https://jellyfin.example.com/Videos/m1/stream?api_key=&static=true",
+		api.New("jellyfin.example.com").StreamURL(api.Item{Id: "m1", Type: "Movie"}))
+}
+
+func TestNewKeepsExplicitScheme(t *testing.T) {
+	c := api.New("http://jf.example.com/")
+	require.Equal(t, "http://jf.example.com/Videos/m1/stream?api_key=&static=true",
+		c.StreamURL(api.Item{Id: "m1", Type: "Movie"}))
+}
+
+func TestClientHeaderCarriesVersion(t *testing.T) {
+	old := api.Version
+	api.Version = "9.9.9"
+	t.Cleanup(func() { api.Version = old })
+
+	var gotAuth string
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("X-Emby-Authorization")
+		assert.NoError(t, json.NewEncoder(w).Encode(api.LibraryResponse{}))
+	}))
+	_, err := client.GetLibraries(context.Background())
+	require.NoError(t, err)
+	require.Contains(t, gotAuth, `Version="9.9.9"`)
+}
+
+func TestGetItemsEscapesParentID(t *testing.T) {
+	var got string
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.Query().Get("ParentId")
+		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	_, err := client.GetItems(context.Background(), "a&b=c", nil)
+	require.NoError(t, err)
+	require.Equal(t, "a&b=c", got)
+}

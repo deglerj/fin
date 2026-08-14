@@ -38,6 +38,8 @@ func main() {
 
 	flag.Parse()
 
+	api.Version = version
+
 	if showVersion {
 		fmt.Println("fin — A terminal UI client for Jellyfin")
 		fmt.Println("Version:", version)
