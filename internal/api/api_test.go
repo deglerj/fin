@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/deglerj/fin/internal/api"
@@ -111,7 +113,7 @@ func TestStreamURL(t *testing.T) {
 	client := api.New("https://jf.example.com")
 	client.SetAuth("uid1", "tok")
 	item := api.Item{Id: "m1", Type: "Movie"}
-	require.Equal(t, "https://jf.example.com/Videos/m1/stream?api_key=tok&static=true", client.StreamURL(item))
+	require.Equal(t, "https://jf.example.com/Videos/m1/stream?ApiKey=tok&static=true", client.StreamURL(item))
 }
 
 func TestGetNextUp(t *testing.T) {
@@ -375,13 +377,13 @@ func TestGetItemUnmarshalsChapters(t *testing.T) {
 }
 
 func TestNewAddsHTTPSWhenSchemeMissing(t *testing.T) {
-	require.Equal(t, "https://jellyfin.example.com/Videos/m1/stream?api_key=&static=true",
+	require.Equal(t, "https://jellyfin.example.com/Videos/m1/stream?ApiKey=&static=true",
 		api.New("jellyfin.example.com").StreamURL(api.Item{Id: "m1", Type: "Movie"}))
 }
 
 func TestNewKeepsExplicitScheme(t *testing.T) {
 	c := api.New("http://jf.example.com/")
-	require.Equal(t, "http://jf.example.com/Videos/m1/stream?api_key=&static=true",
+	require.Equal(t, "http://jf.example.com/Videos/m1/stream?ApiKey=&static=true",
 		c.StreamURL(api.Item{Id: "m1", Type: "Movie"}))
 }
 
@@ -392,12 +394,29 @@ func TestClientHeaderCarriesVersion(t *testing.T) {
 
 	var gotAuth string
 	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("X-Emby-Authorization")
+		gotAuth = r.Header.Get("Authorization")
 		assert.NoError(t, json.NewEncoder(w).Encode(api.LibraryResponse{}))
 	}))
+	client.SetAuth("uid1", "tok123")
 	_, err := client.GetLibraries(context.Background())
 	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(gotAuth, "MediaBrowser "), "got %q", gotAuth)
 	require.Contains(t, gotAuth, `Version="9.9.9"`)
+	require.Contains(t, gotAuth, `Token="tok123"`)
+}
+
+// Jellyfin 12 flattens a series into its episodes unless Recursive is pinned.
+func TestGetItemsPinsRecursiveOffForTypedBrowse(t *testing.T) {
+	var got url.Values
+	_, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.Query()
+		assert.NoError(t, json.NewEncoder(w).Encode(api.ItemsResponse{}))
+	}))
+	client.SetAuth("uid1", "tok123")
+	_, err := client.GetItems(context.Background(), "series1", []string{"Season"})
+	require.NoError(t, err)
+	require.Equal(t, "false", got.Get("Recursive"))
+	require.Equal(t, "Season", got.Get("IncludeItemTypes"))
 }
 
 func TestGetItemsEscapesParentID(t *testing.T) {

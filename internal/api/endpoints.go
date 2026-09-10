@@ -61,6 +61,9 @@ func (c *Client) GetItems(ctx context.Context, parentID string, itemTypes []stri
 		}
 		if len(itemTypes) > 0 {
 			q.Set("IncludeItemTypes", strings.Join(itemTypes, ","))
+			// Jellyfin 12 defaults Recursive to true once IncludeItemTypes is
+			// set, which would flatten a series into its episodes.
+			q.Set("Recursive", "false")
 		}
 		var resp ItemsResponse
 		if err := c.get(ctx, c.userItemsPath(q), &resp); err != nil {
@@ -158,15 +161,16 @@ func (c *Client) GetIntroTimestamps(ctx context.Context, itemID string) (IntroTi
 	return ts, err
 }
 
-// StreamURL embeds the access token as a query parameter. Callers must keep it
-// out of a player's argv — see player.BuildCmd, which routes it through a
+// StreamURL embeds the access token as a query parameter. ApiKey is the
+// spelling Jellyfin 10.8 through 12 accept; the legacy api_key is rejected by
+// 12. Callers must keep the URL out of a player's argv — see player.BuildCmd, which routes it through a
 // playlist file so the token never lands in `ps` output.
 func (c *Client) StreamURL(item Item) string {
 	kind := "Videos"
 	if item.Type == "Audio" || item.MediaType == "Audio" {
 		kind = "Audio"
 	}
-	q := url.Values{"api_key": {c.token}, "static": {"true"}}
+	q := url.Values{"ApiKey": {c.token}, "static": {"true"}}
 	return c.baseURL + "/" + kind + "/" + url.PathEscape(item.Id) + "/stream?" + q.Encode()
 }
 

@@ -47,8 +47,15 @@ func deviceID() string {
 	return _deviceID
 }
 
-func clientHeader() string {
-	return fmt.Sprintf(`MediaBrowser Client="fin", Device="terminal", DeviceId="%s", Version="%s"`, deviceID(), Version)
+// authHeader builds the standard Authorization header. Jellyfin 12 dropped the
+// legacy X-Emby-Authorization/X-Emby-Token spelling, so the token travels
+// inside this header instead of its own.
+func authHeader(token string) string {
+	h := fmt.Sprintf(`MediaBrowser Client="fin", Device="terminal", DeviceId="%s", Version="%s"`, deviceID(), Version)
+	if token != "" {
+		h += fmt.Sprintf(`, Token="%s"`, token)
+	}
+	return h
 }
 
 type Client struct {
@@ -88,10 +95,7 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (*
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	req.Header.Set("X-Emby-Authorization", clientHeader())
-	if c.token != "" {
-		req.Header.Set("X-Emby-Token", c.token)
-	}
+	req.Header.Set("Authorization", authHeader(c.token))
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
